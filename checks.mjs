@@ -12,17 +12,51 @@ export async function checkEditor(view) {
       element.value = String(value);
       element.dispatchEvent(new Event('input', {bubbles: true}));
     };
-    const action = (card, name) => card.querySelector(`[data-action="${name}"]`).click();
+    const action = (card, name) => {
+      if ($('settingsPanel').inert) $('toggleSettings').click();
+      card.querySelector(`[data-action="${name}"]`).click();
+    };
+    const rename = (card, value) => {
+      action(card, 'edit-name');
+      check(!field(card, 'name').hidden && card.querySelector('.point-name-text').hidden, 'Pencil must reveal the point name input');
+      input(field(card, 'name'), value);
+      field(card, 'name').blur();
+      check(field(card, 'name').hidden && card.querySelector('.point-name-text').textContent === value, 'Blur must restore the point name text');
+    };
+    const setting = name => $('settingsForm').elements.namedItem(name);
+    const openSettings = (card, name) => {
+      if (card) action(card, name); else $('globalSettings').click();
+      check($('settingsDialog') instanceof HTMLDialogElement && $('settingsDialog').open, 'Settings must open a native dialog');
+    };
+    const saveSettings = () => {
+      $('settingsForm').requestSubmit();
+      check(!$('settingsDialog').open, 'Valid settings submit must save and close');
+    };
     const clickMap = (x, y) => {
       const r = $('map').getBoundingClientRect();
+      const left = innerWidth <= 760 && !$('settingsPanel').inert
+        ? $('settingsPanel').getBoundingClientRect().width : 0;
       $('map').dispatchEvent(new MouseEvent('click', {
-        bubbles: true, clientX: r.left + r.width * x, clientY: r.top + r.height * y
+        bubbles: true, clientX: r.left + left + (r.width - left) * x, clientY: r.top + r.height * y
       }));
     };
     const frame = () => new Promise((resolve, reject) => {
       const timer = setTimeout(() => reject(Error('Browser did not render a frame')), 3000);
       requestAnimationFrame(() => requestAnimationFrame(() => {clearTimeout(timer); resolve();}));
     });
+    const toggleSidebar = async () => {
+      await frame();
+      await new Promise((resolve, reject) => {
+        const button = $('toggleSettings');
+        const cleanup = () => {clearTimeout(timer); button.removeEventListener('transitionend', done);};
+        const done = event => {
+          if (event.target === button && event.propertyName === 'transform') {cleanup(); resolve();}
+        };
+        const timer = setTimeout(() => {cleanup(); reject(Error('Sidebar transition did not finish'));}, 3000);
+        button.addEventListener('transitionend', done);
+        button.click();
+      });
+    };
     const alerts = [], errors = [];
     window.alert = message => alerts.push(message);
     window.addEventListener('error', event => errors.push(event.message));
@@ -33,8 +67,8 @@ export async function checkEditor(view) {
       $('exportJSON').click();
       return JSON.parse(await downloaded.text());
     };
-    const pointData = list => JSON.stringify(list.map(({name,lat,lng,settings,zones,landmarks,collapsed,visible})=>
-      ({name,lat,lng,settings,zones,landmarks,collapsed,visible})));
+    const pointData = list => JSON.stringify(list.map(({name,lat,lng,settings,zoneSettings,landmarkSettings,zones,landmarks,collapsed,visible})=>
+      ({name,lat,lng,settings,zoneSettings,landmarkSettings,zones,landmarks,collapsed,visible})));
     const load = async data => {
       await $('filePicker').onchange({
         target: {files: [{text: async () => JSON.stringify(data)}], value: 'check.json'}
@@ -43,20 +77,50 @@ export async function checkEditor(view) {
     check(cards().length === 0 && !$('emptyPoints').hidden, 'Fresh list must be empty');
     check(!$('fit') && !document.querySelector('.float-tools'), 'Global fit button must be removed');
     check($('toggleSettings').querySelector('svg') && !$('toggleSettings').textContent.trim(), 'Menu toggle must be an arrow, not a text button');
-    const tab = $('toggleSettings').getBoundingClientRect();
-    const brand = document.querySelector('.brand').getBoundingClientRect();
-    check(tab.left >= brand.left && tab.right <= brand.right && tab.bottom <= brand.bottom, 'Open-menu arrow must be inside its header');
+    check(!$('settingsPanel').contains($('toggleSettings')), 'Sidebar toggle must remain outside the sidebar');
+    check(document.querySelector('script[src="app.js"]') && document.querySelector('link[href="styles.css"]'), 'Application script and styles must be external');
+    check($('saveMenu').hidden && ['exportJSON','exportPoints','exportGeoJSON','print'].every(id => $('saveMenu').contains($(id))), 'Save dropdown must contain all four existing actions');
+    $('saveToggle').click();
+    check(!$('saveMenu').hidden && $('saveToggle').getAttribute('aria-expanded') === 'true', 'Save toggle must open its dropdown');
+    $('saveMenu').dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', bubbles: true}));
+    check($('saveMenu').hidden && document.activeElement === $('saveToggle'), 'Escape must close save dropdown and restore focus');
+    $('saveToggle').click();
+    await project();
+    check($('saveMenu').hidden, 'Choosing an export must close the dropdown');
+    check($('cardTitle').hidden && !$('cardTitleText').hidden, 'Project title must initially be read-only text');
+    $('editTitle').click();
+    check(!$('cardTitle').hidden && $('cardTitleText').hidden, 'Title pencil must reveal the title input');
+    input($('cardTitle'), 'Regression <img src=x>');
+    $('cardTitle').blur();
+    check($('cardTitle').hidden && $('cardTitleText').textContent === 'Regression <img src=x>' && !$('cardTitleText').querySelector('img'), 'Title must commit as safe text');
     clickMap(.5, .5);
     check(cards().length === 1 && $('emptyPoints').hidden, 'Map click must append a point');
     const first = cards()[0];
     check(!first.querySelector('.point-body').hidden, 'New point settings must open immediately');
     const name = 'Альфа "А", <img src=x onerror=alert(1)>';
-    input(field(first, 'name'), name);
-    input(field(first, 'step'), 200);
-    input(field(first, 'count'), 3);
-    input(field(first, 'bearing'), 137);
-    input(field(first, 'paddingX'), 9);
-    input(field(first, 'paddingY'), 4);
+    check(field(first, 'name').hidden && first.querySelector('form').hidden, 'Point name and coordinate forms must initially be hidden');
+    check(first.querySelector('.point-head').lastElementChild.dataset.action === 'toggle-point' &&
+      first.querySelector('.point-body').lastElementChild.dataset.action === 'delete-point', 'Collapse and delete controls must occupy their redesigned positions');
+    check(!field(first, 'count') && !first.querySelector('[data-action="reorder-point"]'), 'Count input and reorder grip must be removed');
+    rename(first, name);
+    input(field(first, 'maxDistance'), 200);
+    input(field(first, 'step'), 75);
+    check([...document.querySelectorAll('.distance-label')].map(e => e.textContent).join('|') === '75 м|150 м|200 м', 'A partial final ring must end exactly at maxDistance');
+    $('exportGeoJSON').click();
+    check(JSON.parse(await downloaded.text()).features.filter(f => f.properties.type === 'distance_ring').map(f => f.properties.radius_m).join() === '75,150,200', 'GeoJSON radii must match rendered partial rings');
+    const bounded = await project();
+    input(field(first, 'step'), 1);
+    input(field(first, 'maxDistance'), 1000);
+    check(field(first, 'maxDistance').checkValidity() && document.querySelectorAll('.distance-label').length === 1000, 'Exactly 1000 rings must remain valid');
+    input(field(first, 'maxDistance'), 1001);
+    check(!field(first, 'maxDistance').checkValidity() && (await project()).points[0].settings.maxDistance === 1000, 'More than 1000 rings must be rejected without changing saved state');
+    input(field(first, 'maxDistance'), bounded.points[0].settings.maxDistance);
+    input(field(first, 'step'), 75);
+    openSettings(first, 'ring-settings');
+    input(setting('rings.bearing'), 137);
+    input(setting('rings.paddingX'), 9);
+    input(setting('rings.paddingY'), 4);
+    saveSettings();
     check(!first.querySelector('img'), 'Point names must not be interpreted as HTML');
     check(getComputedStyle(document.querySelector('.distance-label')).padding === '4px 9px', 'Point label padding must render');
     const dot = document.querySelector('.center-dot').getBoundingClientRect();
@@ -66,10 +130,14 @@ export async function checkEditor(view) {
     clickMap(.9, .7);
     check(cards().length === 2, 'Click outside every radius must append another point');
     const second = cards()[1];
-    check(field(second, 'step').value === '100' && field(second, 'count').value === '5', 'New point must have independent default settings');
+    check(field(second, 'step').value === '100' && field(second, 'maxDistance').value === '500', 'New point must have independent default distances');
+    check(first.querySelector('.point-body').hidden && !second.querySelector('.point-body').hidden, 'Only one point may be expanded at a time');
+    const centers = [...document.querySelectorAll('.center-dot')];
+    check(getComputedStyle(centers[0].parentElement).opacity === '0.75' && getComputedStyle(centers[1].parentElement).opacity === '1', 'Nonselected centers must dim to .75 while the selected center stays opaque');
+    check([...document.querySelectorAll('.distance-label')].slice(0,3).every(e => getComputedStyle(e.parentElement).opacity === '0.75'), 'Nonselected ring labels must dim with their owner');
     check(document.querySelectorAll('.distance-label').length === 8, 'Map must render each point with its own ring count');
-    action(first, 'toggle-point');
-    check(first.querySelector('.point-body').hidden, 'Collapse must hide the point body');
+    action(second, 'toggle-point');
+    check(second.querySelector('.point-body').hidden, 'Collapse must hide the point body');
     clickMap(.5, .5);
     check(cards().length === 2 && !first.querySelector('.point-body').hidden && first.classList.contains('selected'), 'Click inside a point radius must select and expand it');
     action(first, 'add-zone');
@@ -77,14 +145,21 @@ export async function checkEditor(view) {
     const sectors = first.querySelectorAll('.zone-card');
     check(sectors.length === 2 && second.querySelectorAll('.zone-card').length === 0, 'Plus must append sectors only under its point');
     input(sectors[0].querySelector('[data-zone-field="start"]'), 15);
-    input(sectors[0].querySelector('[data-zone-field="outer"]'), 800);
+    check([...sectors[0].querySelectorAll('input')].map(e => e.dataset.zoneField).join() === 'start,end', 'Sector rows must contain only start and end angle inputs');
+    openSettings(sectors[0], 'zone-settings');
+    input(setting('sectors.outer'), 800);
+    saveSettings();
     input(sectors[1].querySelector('[data-zone-field="start"]'), 120);
     input(sectors[1].querySelector('[data-zone-field="end"]'), 190);
-    input(sectors[1].querySelector('[data-zone-field="inner"]'), 900);
-    check(sectors[1].querySelector('[data-zone-field="inner"]').value === '599', 'Sector inner radius must stay below outer radius');
+    openSettings(sectors[1], 'zone-settings');
+    input(setting('sectors.inner'), 900);
+    $('settingsForm').requestSubmit();
+    check($('settingsDialog').open && !setting('sectors.inner').checkValidity(), 'Sector dialog must reject an inner radius beyond the outer radius');
+    input(setting('sectors.inner'), 100);
+    saveSettings();
     let snapshot = await project();
     check(snapshot.points[0].zones[0].start === 15 && snapshot.points[0].zones[1].start === 120, 'Sector editors must update separate items');
-    check(snapshot.points[0].zones[0].outer === 800 && snapshot.points[0].settings.count === 3, 'Sector edits must preserve point settings');
+    check(snapshot.points[0].zones[0].settings.outer === 800 && snapshot.points[0].settings.step === 75, 'Sector edits must preserve independent ring settings');
     const geometryCount = document.querySelectorAll('.distance-label').length;
     action(first, 'toggle-point');
     check(first.querySelector('.point-body').hidden &&
@@ -95,8 +170,9 @@ export async function checkEditor(view) {
     snapshot = await project();
     check(first.querySelector('.point-body').hidden, 'Centering must preserve the collapsed state');
     const geometry = [...document.querySelectorAll('.leaflet-overlay-pane path')]
-      .slice(0, snapshot.points[0].settings.count + snapshot.points[0].zones.length)
+      .filter(path => ['0.95','0.9'].includes(path.getAttribute('stroke-opacity')))
       .map(path => path.getBoundingClientRect());
+    check(geometry.length === 5, 'Fit bounds must include all selected rings and sectors, not another point');
     const fitMap = $('map').getBoundingClientRect();
     const fitBounds = {
       left: Math.min(...geometry.map(r => r.left)), right: Math.max(...geometry.map(r => r.right)),
@@ -112,7 +188,10 @@ export async function checkEditor(view) {
     action(first, 'toggle-point');
     sectors[0].querySelector('[data-action="delete-zone"]').click();
     check(first.querySelectorAll('.zone-card').length === 1, 'Delete must remove only the requested sector');
+    action(second, 'toggle-point');
     action(second, 'add-zone');
+    action(second, 'edit-coordinates');
+    check(!second.querySelector('form').hidden && second.querySelector('.coordinate-text').hidden, 'Coordinate button must reveal its form');
     input(field(second, 'lat'), '');
     second.querySelector('form').dispatchEvent(new Event('submit', {bubbles: true, cancelable: true}));
     check((await project()).points[1].lat === snapshot.points[1].lat, 'Empty coordinates must not move a point');
@@ -121,7 +200,17 @@ export async function checkEditor(view) {
     second.querySelector('form').requestSubmit();
     snapshot = await project();
     check(snapshot.points[1].lat === 50.46 && snapshot.points[1].lng === 30.54, 'Coordinate form must edit its own point');
-    check(snapshot.points[0].name === name && snapshot.points[0].settings.step === 200 &&
+    check(second.querySelector('form').hidden && !second.querySelector('.coordinate-text').hidden, 'Coordinate submit must restore the read-only button');
+    action(second, 'edit-coordinates');
+    input(field(second, 'lat'), 50.4601);
+    field(second, 'lat').dispatchEvent(new FocusEvent('focusout', {bubbles: true, relatedTarget: field(second, 'lng')}));
+    check(!second.querySelector('form').hidden && (await project()).points[1].lat === 50.46, 'Moving focus between coordinates must not submit early');
+    field(second, 'lng').dispatchEvent(new FocusEvent('focusout', {bubbles: true, relatedTarget: null}));
+    check(second.querySelector('form').hidden && (await project()).points[1].lat === 50.4601, 'Leaving the coordinate form must automatically save');
+    action(second, 'edit-coordinates');
+    input(field(second, 'lat'), 50.46);
+    second.querySelector('form').requestSubmit();
+    check(snapshot.points[0].name === name && snapshot.points[0].settings.step === 75 &&
       snapshot.points[1].settings.step === 100, 'Editing another point must preserve names and independent settings');
     action(second, 'draw-zone');
     clickMap(.7, .3);
@@ -131,53 +220,78 @@ export async function checkEditor(view) {
     action(second, 'draw-zone');
     document.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', bubbles: true}));
     check($('modeBadge').classList.contains('hidden'), 'Escape must cancel sector drawing');
-    input(field(second, 'name'), '=1+1');
+    rename(second, '=1+1');
     $('exportPoints').click();
     check((await downloaded.text()).includes(`"'=1+1"`), 'Spreadsheet export must not execute point names as formulas');
-    input(field(second, 'name'), 'Браво');
-    action(first, 'toggle-point');
+    rename(second, 'Браво');
     const saved = await project();
-    check(saved.format === 'cartographic-zones-v3' && saved.points[0].collapsed, 'Project must store per-point data and collapse state');
+    check(saved.format === 'cartographic-zones-v4' && saved.globalSettings.rings && saved.globalSettings.sectors && saved.globalSettings.landmarks && saved.points[0].collapsed, 'V4 project must store global defaults, per-point data and collapse state');
     $('exportPoints').click();
     const csv = await downloaded.text();
     check(csv.trim().split('\r\n').length === 3 && csv.includes(name.replaceAll('"', '""')) &&
       csv.includes(',50.46,30.54'), 'CSV must contain quoted names and edited coordinates');
     $('exportGeoJSON').click();
     const geo = JSON.parse(await downloaded.text());
-    check(geo.features.filter(f => f.geometry.type === 'Point').length === 2, 'GeoJSON must include every point');
+    check(geo.features.filter(f => f.properties.type === 'center').length === 2, 'GeoJSON must include every center');
     check(geo.features.filter(f => f.properties.type === 'distance_ring').length === 8, 'GeoJSON must use individual ring counts');
     check(geo.features.filter(f => f.geometry.type === 'Polygon').length === 3, 'GeoJSON must include every remaining sector');
     check(geo.features.find(f => f.geometry.type === 'Point').properties.name === name, 'GeoJSON must preserve point names');
     await load(saved);
     const restored = await project();
-    check(pointData(restored.points) === pointData(saved.points), 'Project must round-trip names, collapse state, settings and sectors');
+    check(pointData(restored.points) === pointData(saved.points) && JSON.stringify(restored.globalSettings) === JSON.stringify(saved.globalSettings), 'Project must round-trip names, collapse state, sparse settings, defaults and sectors');
     check(cards()[0].querySelector('.point-body').hidden, 'Import must restore collapsed point UI');
     await load({...saved, points: [{...saved.points[0], settings: null}]});
     check(alerts.length === 1 && pointData((await project()).points) === pointData(saved.points), 'Invalid import must leave current points intact');
     await load({
       format: 'cartographic-zones-v1', title: 'Legacy', center: {lat: 51, lng: 31},
-      settings: {step: 150, count: 4, bearing: 90}, zones: saved.points[0].zones
+      settings: {step: 150, count: 4, bearing: 90}, zones: [{start: 15, end: 90, inner: 0, outer: 800, color: '#b94a56', opacity: .2}]
     });
     const legacy = await project();
     check(legacy.points.length === 1 && legacy.points[0].settings.step === 150 &&
-      legacy.points[0].zones.length === 1, 'V1 project must retain its center, settings and sectors');
+      legacy.points[0].settings.maxDistance === 600 && legacy.points[0].settings.bearing === 90 &&
+      legacy.points[0].lat === 51 && legacy.points[0].lng === 31 &&
+      legacy.points[0].zones[0].settings.outer === 800, 'V1 project must migrate count to maxDistance while retaining its center and personal styles');
     await load({
       format: 'cartographic-zones-v2', settings: {step: 175, count: 2, paddingX: 8},
-      points: saved.points.map(p => ({lat: p.lat, lng: p.lng, zones: p.zones}))
+      points: saved.points.map(p => ({lat: p.lat, lng: p.lng, zones: []}))
     });
     input(field(cards()[0], 'step'), 250);
     const migrated = await project();
     check(migrated.points[0].settings.step === 250 && migrated.points[1].settings.step === 175 &&
-      migrated.points[1].settings.paddingX === 8, 'V2 shared settings must migrate to independent copies');
+      migrated.points[1].settings.paddingX === 8 && migrated.points[1].settings.maxDistance === 350, 'V2 shared settings must migrate to independent personal copies');
     await load({...saved, points: []});
     check(cards().length === 0 && !$('emptyPoints').hidden &&
       !document.querySelector('.distance-label'), 'Empty project must clear map geometry and restore empty state');
     await load(saved);
-    const oldV3 = {...saved, points: saved.points.map(({landmarks,visible,...point}) => point)};
+    const oldV3 = {format: 'cartographic-zones-v3', title: 'V3', points: saved.points.map(p => ({
+      name:p.name,lat:p.lat,lng:p.lng,settings:{step:75,count:3,color:'#123456',paddingX:7},zones:[]
+    }))};
     await load(oldV3);
     const migratedV3 = await project();
     check(migratedV3.points.every(p => p.visible && p.landmarks.length === 0) &&
-      document.querySelectorAll('.center-dot').length === 2, 'Old V3 projects without landmarks or visibility must remain usable');
+      migratedV3.points.every(p => p.settings.maxDistance === 225 && p.settings.color === '#123456' && p.settings.paddingX === 7) &&
+      document.querySelectorAll('.center-dot').length === 2, 'Old V3 projects must migrate full personal styles and default missing landmarks and visibility');
+    await load({...saved,
+      globalSettings:{...saved.globalSettings,sectors:{...saved.globalSettings.sectors,inner:0,outer:500}},
+      points:[{...saved.points[0],zoneSettings:{outer:1000},zones:[{start:30,end:90,settings:{inner:800}}]}],
+      selectedPoint:0
+    });
+    const parentSector = await project();
+    check(parentSector.globalSettings.sectors.outer === 500 &&
+      JSON.stringify(parentSector.points[0].zoneSettings) === '{"outer":1000}' &&
+      JSON.stringify(parentSector.points[0].zones[0].settings) === '{"inner":800}',
+      'V4 sparse sector inner radius must normalize against point outer 1000, not global outer 500');
+    openSettings(cards()[0].querySelector('.zone-card'), 'zone-settings');
+    check(setting('sectors.inner').value === '800' && setting('sectors.outer').value === '1000',
+      'Sector editor must resolve sparse inner and outer overrides from the actual parent');
+    $('closeSettings').click();
+    $('exportGeoJSON').click();
+    const parentPolygon = JSON.parse(await downloaded.text()).features.find(f => f.properties.type === 'restricted_zone');
+    check(parentPolygon.properties.inner_radius_m === 800 && parentPolygon.properties.outer_radius_m === 1000,
+      'GeoJSON must use sector inner 800 with inherited point outer 1000');
+    await load(parentSector);
+    check(pointData((await project()).points) === pointData(parentSector.points),
+      'Sparse sector inner 800 must survive a second V4 round-trip unchanged');
     await load(saved);
     const landmarkClick = (dx, dy) => {
       const r = document.querySelector('.center-dot.selected').getBoundingClientRect();
@@ -194,9 +308,11 @@ export async function checkEditor(view) {
     landmarkClick(35, 0);
     check(cards().length === 2 && cards()[0].querySelectorAll('.landmark-item').length === 1,
       'Landmark placement must append an item only under its parent point');
-    const landmarkInput = cards()[0].querySelector('[data-landmark-field="name"]');
     const referenceName = 'Дерево "<img src=x>"';
-    input(landmarkInput, referenceName);
+    check(cards()[0].querySelector('.landmark-name') && !cards()[0].querySelector('.landmark-item input,.landmark-info'), 'Landmark list must contain text and actions, not inline fields or readouts');
+    openSettings(cards()[0].querySelector('.landmark-item'), 'edit-landmark');
+    input(setting('name'), referenceName);
+    saveSettings();
     check(document.querySelector('.landmark-caption strong').textContent === referenceName &&
       !document.querySelector('.landmark-caption img'), 'Landmark map labels must render names as text');
     $('exportGeoJSON').click();
@@ -204,8 +320,9 @@ export async function checkEditor(view) {
     check(geoLandmarks.length === 1 && geoLandmarks[0].properties.point === 1 &&
       Math.abs(geoLandmarks[0].properties.azimuth_deg - 90) < 2, 'Landmark GeoJSON must store ownership and correct eastward azimuth');
     const expectedDistance = Math.round(geoLandmarks[0].properties.distance_m).toLocaleString('uk-UA') + ' м';
-    check(document.querySelector('.landmark-caption small').textContent.includes(expectedDistance) &&
-      cards()[0].querySelector('.landmark-info').textContent.includes(expectedDistance), 'Map and list must show the computed landmark distance');
+    const caption = document.querySelector('.landmark-caption');
+    check(caption.querySelectorAll('small').length === 2 && caption.querySelectorAll('small')[0].textContent === expectedDistance &&
+      /^\d+°$/.test(caption.querySelectorAll('small')[1].textContent), 'Landmark caption must separate name, computed distance and integer angle');
     action(cards()[0], 'add-landmark');
     landmarkClick(-25, -10);
     cards()[0].querySelectorAll('[data-action="delete-landmark"]')[1].click();
@@ -217,8 +334,16 @@ export async function checkEditor(view) {
     const beforeDrag = await project();
     check(beforeDrag.points[0].landmarks.length === 1 && beforeDrag.points[1].landmarks.length === 1,
       'Each point must own its own landmarks');
-    check(document.querySelectorAll('.leaflet-marker-draggable').length === 1, 'Only the selected center may be dragged');
-    const readoutBefore = cards()[1].querySelector('.landmark-info').textContent;
+    check(document.querySelectorAll('.leaflet-marker-draggable').length === 2 &&
+      [...document.querySelectorAll('.leaflet-marker-draggable')].every(e => e.querySelector('.center-dot.selected,.landmark-caption')), 'Only the selected center and its landmark may be dragged');
+    check([...document.querySelectorAll('.landmark-caption')].map(e => getComputedStyle(e.closest('.leaflet-marker-icon')).opacity).join() === '0.75,1',
+      'Landmark opacity must follow owner selection');
+    const paths = [...document.querySelectorAll('.leaflet-overlay-pane path')];
+    check(paths.filter(e => e.getAttribute('fill') === 'none').map(e => Number(e.getAttribute('stroke-opacity')))
+      .every((opacity,i) => Math.abs(opacity - (i < 3 ? .95 * .75 : .95)) < 1e-8) &&
+      paths.filter(e => e.getAttribute('fill') !== 'none').map(e => Number(e.getAttribute('fill-opacity'))).join() === '0.75,1,1',
+      'Ring and sector opacity must dim only the nonselected owner');
+    const readoutBefore = [...document.querySelectorAll('.landmark-caption')][1].textContent;
     const marker = document.querySelector('.center-dot.selected').parentElement;
     const markerRect = marker.getBoundingClientRect();
     const x = markerRect.left + markerRect.width / 2, y = markerRect.top + markerRect.height / 2;
@@ -242,13 +367,37 @@ export async function checkEditor(view) {
     check(JSON.stringify(afterDrag.points[0]) === JSON.stringify(beforeDrag.points[0]),
       'Dragging must not move or edit another point');
     check(JSON.stringify(afterDrag.points[1].landmarks) === JSON.stringify(beforeDrag.points[1].landmarks) &&
-      cards()[1].querySelector('.landmark-info').textContent !== readoutBefore,
+      [...document.querySelectorAll('.landmark-caption')][1].textContent !== readoutBefore,
       'Landmark coordinates must stay fixed while distance and azimuth update');
     check(JSON.stringify(afterDrag.points[1].zones) === JSON.stringify(beforeDrag.points[1].zones) &&
       JSON.stringify(afterDrag.points[1].settings) === JSON.stringify(beforeDrag.points[1].settings),
       'Dragging must preserve sectors and ring settings');
     $('map').dispatchEvent(new MouseEvent('click', {bubbles: true, clientX: x + 60, clientY: y + 40}));
     check(cards().length === 2, 'Drag release must not create another point');
+    const landmarkMarker = [...document.querySelectorAll('.leaflet-marker-draggable')].find(e => e.querySelector('.landmark-caption'));
+    const landmarkRect = landmarkMarker.getBoundingClientRect();
+    const lx = landmarkRect.left + 4, ly = landmarkRect.top + 4;
+    const dragLandmark = (element, type, dx, dy, buttons) => element.dispatchEvent(new MouseEvent(type, {
+      bubbles:true,cancelable:true,button:0,buttons,clientX:lx+dx,clientY:ly+dy
+    }));
+    dragLandmark(landmarkMarker, 'mousedown', 0, 0, 1);
+    dragLandmark($('map'), 'mousemove', 12, 8, 1);
+    await frame();
+    dragLandmark($('map'), 'mousemove', 2000, 1200, 1);
+    await frame();
+    dragLandmark($('map'), 'mouseup', 2000, 1200, 0);
+    await frame();
+    const movedLandmark = await project();
+    check(movedLandmark.points[1].landmarks[0].lat !== afterDrag.points[1].landmarks[0].lat &&
+      movedLandmark.points[1].landmarks[0].lng !== afterDrag.points[1].landmarks[0].lng, 'Dragging a selected landmark must update its coordinates');
+    check(JSON.stringify(movedLandmark.points[0]) === JSON.stringify(afterDrag.points[0]) &&
+      movedLandmark.points[1].lat === afterDrag.points[1].lat && movedLandmark.points[1].lng === afterDrag.points[1].lng &&
+      JSON.stringify(movedLandmark.points[1].settings) === JSON.stringify(afterDrag.points[1].settings) &&
+      JSON.stringify(movedLandmark.points[1].zones) === JSON.stringify(afterDrag.points[1].zones), 'Landmark dragging must preserve its center, settings, sectors and other owners');
+    $('exportGeoJSON').click();
+    const constrained = JSON.parse(await downloaded.text()).features.find(f => f.properties.type === 'landmark' && f.properties.point === 2);
+    check(Math.abs(constrained.properties.distance_m - movedLandmark.points[1].settings.maxDistance) < 2,
+      'Dragging a landmark beyond its radius must constrain it to maxDistance');
     const withLandmarks = await project();
     await load(withLandmarks);
     const landmarkRoundTrip = await project();
@@ -260,6 +409,16 @@ export async function checkEditor(view) {
       }));
     await load({...withLandmarks, points: [{...withLandmarks.points[0], landmarks: [{lat: 999, lng: 0}]}]});
     check(alerts.length === 3 && cards().length === 2, 'Invalid landmark import must preserve current points');
+    check(pointData((await project()).points) === pointData(withLandmarks.points), 'Invalid landmark import must be atomic');
+    $('toggleAllVisibility').click();
+    const allHidden = await project();
+    check(allHidden.points.every(p => !p.visible) && !document.querySelector('.center-dot,.distance-label,.landmark-caption,.leaflet-overlay-pane path'),
+      'Global eye must hide every geometry layer');
+    check(allHidden.points.every((p,i) => p.zones.length === withLandmarks.points[i].zones.length &&
+      JSON.stringify(p.landmarks) === JSON.stringify(withLandmarks.points[i].landmarks)), 'Global hiding must preserve sector and landmark data');
+    $('toggleAllVisibility').click();
+    check((await project()).points.every(p => p.visible) && document.querySelectorAll('.center-dot').length === 2 &&
+      document.querySelectorAll('.landmark-caption').length === 2, 'Global eye must restore all point geometry');
     action(cards()[0], 'toggle-visibility');
     const hiddenProject = await project();
     check(hiddenProject.points[0].visible === false && cards().length === 2 &&
@@ -301,22 +460,32 @@ export async function checkEditor(view) {
     await load(withLandmarks);
     if($('toggleSettings').getAttribute('aria-expanded') === 'false')$('toggleSettings').click();
     const originalOrder = (await project()).points.map(p => p.name);
+    if(cards()[0].querySelector('.point-body').hidden)action(cards()[0], 'toggle-point');
     const selectedName = (await project()).points[(await project()).selectedPoint].name;
-    const grip = cards()[0].querySelector('[data-action="reorder-point"]');
-    grip.dispatchEvent(new KeyboardEvent('keydown', {key: 'ArrowDown', bubbles: true, cancelable: true}));
+    cards()[0].dispatchEvent(new KeyboardEvent('keydown', {key:'ArrowDown',bubbles:true,cancelable:true}));
+    check((await project()).points.map(p => p.name).join('|') === originalOrder.join('|'), 'Expanded cards must ignore keyboard reorder');
+    cards().forEach(card => {if(!card.querySelector('.point-body').hidden)action(card, 'toggle-point');});
+    check(cards().every(card => getComputedStyle(card).touchAction === 'none'),
+      'Collapsed cards must reserve touch gestures for reordering rather than browser scrolling');
+    cards()[0].querySelector('[data-action="edit-name"]').dispatchEvent(new KeyboardEvent('keydown', {key:'ArrowDown',bubbles:true,cancelable:true}));
+    check((await project()).points.map(p => p.name).join('|') === originalOrder.join('|'), 'Keyboard events on card buttons must not reorder');
+    cards()[0].dispatchEvent(new KeyboardEvent('keydown', {key: 'ArrowDown', bubbles: true, cancelable: true}));
     let ordered = await project();
     check(ordered.points.map(p => p.name).join('|') === [...originalOrder].reverse().join('|') &&
       ordered.points[ordered.selectedPoint].name === selectedName, 'Keyboard reorder must update point order while preserving selection');
+    cards()[1].dispatchEvent(new KeyboardEvent('keydown', {key:'ArrowUp',bubbles:true,cancelable:true}));
+    check((await project()).points.map(p => p.name).join('|') === originalOrder.join('|'), 'ArrowUp must move a collapsed card upward');
+    cards()[0].dispatchEvent(new KeyboardEvent('keydown', {key:'ArrowDown',bubbles:true,cancelable:true}));
     cards().forEach(card => {if(!card.querySelector('.point-body').hidden)action(card, 'toggle-point');});
     document.querySelector('.scroll').scrollTop = 0;
     await frame();
-    const dragGrip = cards()[0].querySelector('[data-action="reorder-point"]');
-    const start = dragGrip.getBoundingClientRect(), target = cards()[1].querySelector('.point-head').getBoundingClientRect();
+    const dragCard = cards()[0];
+    const start = dragCard.getBoundingClientRect(), target = cards()[1].querySelector('.point-head').getBoundingClientRect();
     const list = $('pointList'), capture = list.setPointerCapture;
     let capturedId;
     // Synthetic pointer events have no native pointer to capture.
     list.setPointerCapture = id => {capturedId = id;};
-    dragGrip.dispatchEvent(new PointerEvent('pointerdown', {
+    dragCard.dispatchEvent(new PointerEvent('pointerdown', {
       bubbles: true, cancelable: true, pointerId: 71, button: 0, buttons: 1,
       clientX: start.left + start.width / 2, clientY: start.top + start.height / 2
     }));
@@ -333,12 +502,157 @@ export async function checkEditor(view) {
       'Pointer dragging must reorder both the stored points and visible list');
     check(ordered.points.find(p => p.name === referenceName) === undefined &&
       ordered.points[0].landmarks[0].name === referenceName, 'Reordering must preserve landmark ownership');
+    check(ordered.points[ordered.selectedPoint].name === selectedName, 'Pointer reorder must preserve the selected owner');
     $('exportPoints').click();
     check((await downloaded.text()).split('\r\n')[1].includes(originalOrder[0].replaceAll('"', '""')),
       'CSV must follow the reordered point list');
+    $('exportGeoJSON').click();
+    const orderedGeo = JSON.parse(await downloaded.text()).features;
+    check(orderedGeo.filter(f => f.properties.type === 'center').map(f => f.properties.name).join('|') === originalOrder.join('|') &&
+      orderedGeo.filter(f => f.properties.type === 'landmark').every((f,i) => f.properties.point === i+1),
+      'GeoJSON must follow reordered centers and retain landmark ownership numbers');
     await load(ordered);
     check((await project()).points.map(p => p.name).join('|') === originalOrder.join('|'),
       'Projects must preserve reordered points');
+    // Pointer capture is native-only; substitute capture alone, not the reorder behavior.
+    const pointerReorder = async (source, id, cancel = false) => {
+      const r = source.getBoundingClientRect(), destination = cards()[1].getBoundingClientRect();
+      let captured = false;
+      const original = list.setPointerCapture;
+      list.setPointerCapture = () => {captured = true;};
+      try {
+        source.dispatchEvent(new PointerEvent('pointerdown', {bubbles:true,cancelable:true,pointerId:id,button:0,buttons:1,clientX:r.left+8,clientY:r.top+8}));
+      } finally {list.setPointerCapture = original;}
+      document.dispatchEvent(new PointerEvent('pointermove', {bubbles:true,cancelable:true,pointerId:id,clientY:destination.bottom+8}));
+      await frame();
+      document.dispatchEvent(new PointerEvent(cancel?'pointercancel':'pointerup', {bubbles:true,pointerId:id}));
+      await frame();
+      return captured;
+    };
+    const beforeIgnored = (await project()).points.map(p => p.name).join('|');
+    check(!await pointerReorder(cards()[0].querySelector('[data-action="edit-name"]'), 72) &&
+      (await project()).points.map(p => p.name).join('|') === beforeIgnored, 'Pointer presses on buttons must not start reordering');
+    action(cards()[0], 'toggle-point');
+    check(!await pointerReorder(cards()[0], 73) && (await project()).points.map(p => p.name).join('|') === beforeIgnored,
+      'Expanded cards must ignore pointer reorder');
+    check(!await pointerReorder(field(cards()[0], 'step'), 74) &&
+      (await project()).points.map(p => p.name).join('|') === beforeIgnored, 'Pointer presses on inputs must not start reordering');
+    action(cards()[0], 'toggle-point');
+    check(await pointerReorder(cards()[0], 75, true) &&
+      (await project()).points.map(p => p.name).join('|') === beforeIgnored, 'Pointer cancellation must restore the original card order');
+
+    // Exercise the global -> point -> item inheritance chain without rewriting fixtures.
+    action(cards()[0], 'toggle-point');
+    let inherited = await project();
+    check(Object.keys(inherited.points[1].zoneSettings).length === 0 &&
+      Object.keys(inherited.points[1].landmarkSettings).length === 0 &&
+      Object.keys(inherited.points[1].landmarks[0].settings).length === 0, 'New point and item style overrides must start sparse');
+    openSettings(null);
+    check(['rings.color','sectors.inner','sectors.outer','sectors.color','sectors.opacity',
+      'landmarks.nameSize','landmarks.distanceSize','landmarks.angleSize','landmarks.paddingX','landmarks.paddingY',
+      'landmarks.backgroundOpacity','landmarks.angle'].every(name => setting(name)), 'Global dialog must expose every redesigned style group');
+    check($('resetSettings').hidden, 'Global settings must not offer a personal override reset');
+    input(setting('rings.color'), '#112233');
+    $('closeSettings').click();
+    check(JSON.stringify((await project()).globalSettings) === JSON.stringify(inherited.globalSettings), 'Closing settings must cancel unsaved edits');
+    openSettings(null);
+    input(setting('rings.color'), '#112233');
+    input(setting('sectors.color'), '#334455');
+    input(setting('landmarks.nameSize'), 18);
+    input(setting('landmarks.distanceSize'), 16);
+    input(setting('landmarks.angleSize'), 14);
+    input(setting('landmarks.paddingX'), 12);
+    input(setting('landmarks.paddingY'), 7);
+    input(setting('landmarks.backgroundOpacity'), .5);
+    input(setting('landmarks.angle'), 180);
+    saveSettings();
+    const globallyStyled = await project();
+    check(globallyStyled.globalSettings.rings.color === '#112233' &&
+      !Object.hasOwn(globallyStyled.points[1].settings, 'color') &&
+      globallyStyled.globalSettings.sectors.color === '#334455', 'Saving global defaults must not materialize personal overrides');
+    const globalRings = [...document.querySelectorAll('.leaflet-overlay-pane path')].filter(e => e.getAttribute('fill') === 'none');
+    check(globalRings.length === 8 && globalRings.every(e => getComputedStyle(e).stroke === 'rgb(17, 34, 51)'),
+      'Unchanged point ring colors must inherit global edits');
+    const styledCaption = document.querySelector('.landmark-caption');
+    check(styledCaption.querySelector('strong').style.fontSize === '18px' &&
+      [...styledCaption.querySelectorAll('small')].map(e => e.style.fontSize).join() === '16px,14px' &&
+      styledCaption.style.padding === '7px 12px' && styledCaption.style.backgroundColor === 'rgba(255, 255, 255, 0.5)' &&
+      parseFloat(styledCaption.style.top) > 0, 'Inherited landmark styles must render font sizes, padding, background and angle');
+    openSettings(cards()[0], 'ring-settings');
+    input(setting('rings.color'), '#abcdef');
+    saveSettings();
+    openSettings(cards()[0], 'sector-settings');
+    input(setting('sectors.color'), '#abcdef');
+    saveSettings();
+    openSettings(cards()[0], 'landmark-settings');
+    input(setting('landmarks.nameSize'), 20);
+    saveSettings();
+    inherited = await project();
+    check(inherited.points[0].settings.color === '#abcdef' &&
+      JSON.stringify(inherited.points[0].zoneSettings) === '{"color":"#abcdef"}' &&
+      JSON.stringify(inherited.points[0].landmarkSettings) === '{"nameSize":20}', 'Point dialogs must store only changed style fields');
+    const item = cards()[0].querySelector('.landmark-item');
+    openSettings(item, 'edit-landmark');
+    check(setting('landmarks.nameSize').value === '20', 'Landmark item must inherit its point styles');
+    input(setting('landmarks.nameSize'), 22);
+    saveSettings();
+    openSettings(cards()[0].querySelector('.zone-card'), 'zone-settings');
+    check(setting('sectors.color').value === '#abcdef', 'Sector item must inherit its point color');
+    input(setting('sectors.color'), '#fedcba');
+    saveSettings();
+    const personal = await project();
+    check(personal.points[0].landmarks[0].settings.nameSize === 22 &&
+      personal.points[0].zones[0].settings.color === '#fedcba' &&
+      Object.keys(personal.points[1].landmarkSettings).length === 0, 'Item overrides must remain local to their item and owner');
+    await load(personal);
+    const restoredPersonal = await project();
+    check(pointData(restoredPersonal.points) === pointData(personal.points) &&
+      JSON.stringify(restoredPersonal.globalSettings) === JSON.stringify(personal.globalSettings), 'V4 round-trip must preserve every inheritance level');
+    const beforeOverflow = await project(), alertsBeforeOverflow = alerts.length;
+    await load({...personal, title:'Must not be applied', points:personal.points.map((point,i) =>
+      i ? {...point,settings:{...point.settings,step:1,maxDistance:1001}} : point)});
+    const afterOverflow = await project();
+    check(alerts.length === alertsBeforeOverflow + 1 && pointData(afterOverflow.points) === pointData(beforeOverflow.points) &&
+      afterOverflow.title === beforeOverflow.title && JSON.stringify(afterOverflow.globalSettings) === JSON.stringify(beforeOverflow.globalSettings),
+      'Import exceeding 1000 rings must reject the whole project without applying its earlier valid point or title');
+    openSettings(cards()[0].querySelector('.landmark-item'), 'edit-landmark');
+    $('resetSettings').click();
+    openSettings(cards()[0].querySelector('.zone-card'), 'zone-settings');
+    $('resetSettings').click();
+    openSettings(cards()[0], 'ring-settings');
+    $('resetSettings').click();
+    openSettings(cards()[0], 'sector-settings');
+    $('resetSettings').click();
+    openSettings(cards()[0], 'landmark-settings');
+    $('resetSettings').click();
+    const reset = await project();
+    check(reset.points[0].settings.step === 75 && reset.points[0].settings.maxDistance === 200 &&
+      !Object.hasOwn(reset.points[0].settings, 'color') && !Object.hasOwn(reset.points[0].settings, 'paddingX') &&
+      Object.keys(reset.points[0].zoneSettings).length === 0 && Object.keys(reset.points[0].landmarkSettings).length === 0 &&
+      Object.keys(reset.points[0].zones[0].settings).length === 0 &&
+      Object.keys(reset.points[0].landmarks[0].settings).length === 0, 'Reset must clear personal styles at every level while preserving ring distances');
+    openSettings(null);
+    input(setting('rings.color'), '#223344');
+    input(setting('landmarks.nameSize'), 19);
+    saveSettings();
+    openSettings(cards()[0], 'ring-settings');
+    check(setting('rings.color').value === '#223344', 'Reset point must resume inheriting future global ring edits');
+    $('closeSettings').click();
+    openSettings(cards()[0].querySelector('.landmark-item'), 'edit-landmark');
+    check(setting('landmarks.nameSize').value === '19' && setting('name').value === referenceName, 'Reset item must inherit future defaults without losing its name');
+    $('closeSettings').click();
+    const beforeSelection = await project();
+    await load({...beforeSelection, view:{lat:0,lng:0,zoom:14}});
+    if (!cards()[0].querySelector('.point-body').hidden) action(cards()[0], 'toggle-point');
+    action(cards()[0], 'toggle-point');
+    await frame();
+    const selectedDot = document.querySelector('.center-dot.selected').getBoundingClientRect();
+    const exposedLeft = innerWidth <= 760 ? $('settingsPanel').getBoundingClientRect().right
+      : $('map').getBoundingClientRect().left;
+    check(selectedDot.left >= exposedLeft && selectedDot.right <= innerWidth &&
+      selectedDot.top >= 0 && selectedDot.bottom <= innerHeight,
+      'Selecting an offscreen point must reveal it on the map outside the sidebar overlay');
+    await load(beforeSelection);
     const ids = [...document.querySelectorAll('[id]')].map(e => e.id);
     check(new Set(ids).size === ids.length, 'Point and sector field IDs must be unique');
     check([...document.querySelectorAll('label[for]')].every(l => $(l.htmlFor)), 'Every editor label must reference a real input');
@@ -348,10 +662,9 @@ export async function checkEditor(view) {
     check(before.top === after.top && before.height === after.height && window.scrollY === 0, 'Menu scroll must not move the map');
     check(Math.abs(before.height - innerHeight) < 1, 'Map must fill viewport height');
     const viewBefore = (await project()).view;
-    $('toggleSettings').click();
-    await frame();
+    await toggleSidebar();
     check($('toggleSettings').getAttribute('aria-expanded') === 'false' &&
-      getComputedStyle($('settingsPanel')).display === 'none', 'Arrow must hide menu');
+      $('settingsPanel').inert, 'Arrow must hide and deactivate the sidebar');
     const closedTab = $('toggleSettings').getBoundingClientRect();
     check(closedTab.left === 0 && closedTab.width <= 44, 'Closed arrow tab must peek from the left edge');
     check($('map').getBoundingClientRect().width === innerWidth, 'Hidden menu must release the whole map');
@@ -359,8 +672,7 @@ export async function checkEditor(view) {
     const pixelTolerance = 360 / (256 * 2 ** viewBefore.zoom);
     check(Math.abs(viewBefore.lat - viewAfter.lat) <= pixelTolerance &&
       Math.abs(viewBefore.lng - viewAfter.lng) <= pixelTolerance, 'Menu arrow must preserve center within one rendered map pixel');
-    $('toggleSettings').click();
-    await frame();
+    await toggleSidebar();
     check($('toggleSettings').getAttribute('aria-expanded') === 'true' &&
       getComputedStyle($('settingsPanel')).display !== 'none', 'Arrow must reopen menu');
     check(document.documentElement.scrollWidth === innerWidth, 'Page must not overflow horizontally');

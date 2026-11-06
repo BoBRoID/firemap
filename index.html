@@ -3,768 +3,200 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Редактор точок, кіл відстаней, секторів та орієнтирів на карті." />
   <title>Картографічний редактор зон — відстані та сектори</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="anonymous" />
-  <style>
-    :root { font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif; color: #1d2b42; background: #edf1f6; font-synthesis:none; }
-    * { box-sizing: border-box; }
-    html, body { margin: 0; height:100%; overflow:hidden; }
-    button, input, select { font: inherit; }
-    button { cursor:pointer; }
-    .app { --sidebar-width:380px; position:relative; display:grid; grid-template-columns: var(--sidebar-width) minmax(0,1fr); height:100dvh; overflow:hidden; }
-    .app.settings-closed {grid-template-columns:minmax(0,1fr);}
-    .app.settings-closed .side {display:none;}
-    .side { z-index: 600; background: #fff; display:flex; flex-direction:column; box-shadow: 2px 0 18px #172e4811; min-width:0; min-height:0; overflow:hidden; }
-    .brand, .status {flex-shrink:0;}
-    .brand { padding:20px 56px 18px 18px; border-bottom:1px solid #e8edf5; }
-    .brand-main { display:flex; align-items:center; gap:12px; }
-    .brand-mark { display:flex; flex-shrink:0; align-items:center; justify-content:center; width:36px;height:36px; border:2px solid #356bd4; border-radius:50%; position:relative; color:#356bd4; font-weight:900; font-size:22px; }
-    .brand-mark::before { content:""; position:absolute; inset:8px; border:1px solid #356bd4; border-radius:50%; }
-    .brand-mark::after { content:""; position:absolute; width:5px;height:5px;background:#356bd4; border-radius:50%; }
-    h1 { font-size:16px; line-height:1.25; margin:0; letter-spacing:-0.3px; }
-    .sub { color:#68788d; margin:4px 0 0; font-size:12px; line-height:1.4; }
-    .scroll { padding:18px 14px 16px; overflow:auto; flex:1; min-height:0; overscroll-behavior:contain; scrollbar-gutter:stable; }
-    .section { border-bottom: 1px solid #e8edf5; padding-bottom:18px; margin-bottom:17px; }
-    .section:last-child {border-bottom:0; margin-bottom:0;}
-    .section-title {display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:13px; font-size:13px; font-weight:750; letter-spacing:.15px;}
-    .chip { padding:4px 7px; background:#eef4ff;color:#2860c0;border-radius:6px; font-size:10px;font-weight:700; }
-    .field { display:flex;flex-direction:column;gap:6px; min-width:0; margin-bottom:12px; }
-    .field:last-child {margin-bottom:0;}
-    label { font-size:12px; font-weight:620; color:#52637a; }
-    input[type="number"],input[type="text"],select { height:37px; border-radius:8px; border:1px solid #d9e2ee; padding:0 10px; outline:none; background:#fff;color:#1d2b42; width:100%; min-width:0; font-size:13px; }
-    input:focus,select:focus { border-color:#3e75d9; box-shadow:0 0 0 3px #3e75d91c; }
-    input[type="color"] { height:38px; width:100%; border:1px solid #d9e2ee; border-radius:8px; padding:4px; background:#fff; cursor:pointer; }
-    input[type="range"] {width:100%; accent-color:#346bd2;}
-    .cols2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-    .input-unit { position:relative; }
-    .input-unit input { padding-right:40px; }
-    .unit { position:absolute; right:10px; top:11px; color:#94a1b2; font-size:11px; pointer-events:none; }
-    .btn { display:inline-flex; justify-content:center; align-items:center; gap:7px; min-height:36px; width:100%; padding:8px 9px; background:#f4f7fb; border:1px solid #dce4ef; border-radius:8px;color:#31435c;font-size:12px;font-weight:700;transition: .12s ease; }
-    .btn:hover {background:#e9effa;}
-    .btn-primary {background:#3268ce; color:white; border-color:#3268ce;}
-    .btn-primary:hover {background:#295bb9;}
-    .btn-danger {color:#a63146;background:#fff5f6;border-color:#f1d7dc;}
-    .btn.active {background:#e4eeff;border-color:#82a5ed;color:#1d58bc;}
-    button:focus-visible, summary:focus-visible {outline:2px solid #3268ce;outline-offset:3px;}
-    .fine {font-size:11px;line-height:1.55;color:#79879a;margin:8px 0 0;}
-    .range-head { display:flex;justify-content:space-between;gap:8px;align-items:center; }
-    .range-head span {font-size:12px;color:#2a61be;font-weight:700;}
-    .status { padding:12px 18px;background:#f6f9fd;border-top:1px solid #e6ecf5; color:#617187;font-size:11px; line-height:1.5; min-height:53px; }
-    .status b {color:#33445c;}
-    .map-wrap {position:relative; z-index:0; overflow:hidden; min-height:0; min-width:0; }
-    #map {width:100%;height:100%; background:#e1e8ef; }
-    .map-header {position:absolute;top:16px;left:56px;right:60px;z-index:450;pointer-events:none;}
-    .badge-mode {background:#204b93;color:white;border-radius:8px;padding:10px 12px;font-size:12px;font-weight:650;box-shadow:0 4px 16px #1a28431c;}
-    .distance-label { background:#ffffffe8; border:1px solid #ffffff; border-radius:5px; box-shadow:0 1px 3px #172b4822; padding:2px 5px; color:#1e3a66; font-weight:750; text-align:center; white-space:nowrap; transform:translate(-50%,-50%); width:max-content; }
-    .leaflet-div-icon {background:none;border:0;}
-    .center-dot {width:16px;height:16px;border-radius:50%;background:#fff;border:4px solid #244fb3;box-shadow:0 0 0 3px #244fb333,0 2px 8px #1e385d33;}
-    .center-dot.selected {background:#244fb3;border-color:#fff;box-shadow:0 0 0 3px #244fb3;}
-    .settings-toggle {position:absolute;left:calc(var(--sidebar-width) - 50px);top:18px;z-index:650;width:38px;height:44px;display:grid;place-items:center;border:0;border-radius:7px;background:#f4f7fb;color:#31435c;}
-    .settings-toggle:hover {background:#e9effa;}
-    .settings-toggle svg {width:20px;height:20px;}
-    .app.settings-closed .settings-toggle {left:0;background:#fff;border-radius:0 8px 8px 0;box-shadow:2px 2px 10px #172e4822;}
-    .app.settings-closed .settings-toggle svg {transform:rotate(180deg);}
-    .hidden {display:none !important;}
-    [hidden] {display:none !important;}
-    .sr-only {position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;}
-    .list-heading {display:flex;justify-content:space-between;align-items:center;margin:0 2px 12px;font-size:13px;font-weight:750;}
-    .point-list,.zone-list,.landmark-list {list-style:none;padding:0;margin:0;display:grid;gap:12px;}
-    .point-card {border:1px solid #dce4ef;border-radius:10px;overflow:hidden;background:white;min-width:0;}
-    .point-head {display:grid;grid-template-columns:24px 28px minmax(0,1fr) 28px 32px 28px;gap:2px;align-items:center;padding:8px 6px;background:#f4f7fb;}
-    .point-card.selected > .point-head {background:#e4eeff;}
-    .point-head .point-name {background:transparent;border:1px solid transparent;font-weight:750;padding:0 6px;height:36px;}
-    .point-name:hover {border-color:#d9e2ee;}
-    .icon-btn {display:grid;place-items:center;width:36px;min-height:36px;padding:0;border:0;border-radius:6px;background:transparent;color:#52637a;}
-    .icon-btn:hover {background:#dce7f8;color:#1d58bc;}
-    .icon-btn svg {width:18px;height:18px;pointer-events:none;}
-    .point-head .icon-btn {width:100%;}
-    .point-delete {color:#a63146;}
-    .point-grip {cursor:grab;touch-action:none;}
-    .point-card.reordering {opacity:.65;}
-    .point-card.reordering .point-grip {cursor:grabbing;}
-    .point-card.map-hidden .point-name {color:#79879a;}
-    .point-toggle[aria-expanded="true"] svg {transform:rotate(90deg);}
-    .point-body {padding:16px 12px;}
-    .point-body .section {padding-bottom:15px;margin-bottom:15px;}
-    .point-body .section-title {font-size:12px;margin-bottom:12px;}
-    .point-body .fine {margin-bottom:12px;}
-    .sector-heading {display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px;}
-    .sector-heading strong {font-size:12px;}
-    .sector-actions {display:flex;gap:4px;}
-    .sector-actions .btn {width:auto;min-height:36px;}
-    .zone-card {padding:12px;background:#f6f9fd;border:1px solid #e6ecf5;border-radius:8px;min-width:0;}
-    .zone-head {display:flex;justify-content:space-between;align-items:center;gap:8px;margin:-4px -4px 10px 0;font-size:12px;font-weight:700;}
-    .zone-head .icon-btn {color:#a63146;}
-    .landmark-section {margin-top:18px;padding-top:15px;border-top:1px solid #e8edf5;}
-    .landmark-item {display:grid;grid-template-columns:minmax(0,1fr) 32px;gap:6px;padding:10px;background:#f6f9fd;border:1px solid #e6ecf5;border-radius:8px;}
-    .landmark-info {grid-column:1/-1;font-size:11px;color:#52637a;}
-    .landmark-item .icon-btn {width:32px;color:#a63146;}
-    .landmark-dot {position:absolute;left:-5px;top:-5px;width:10px;height:10px;background:#204b93;border:2px solid white;transform:rotate(45deg);box-shadow:0 1px 4px #172e4844;}
-    .landmark-caption {position:absolute;left:12px;top:-14px;width:max-content;max-width:200px;padding:5px 8px;background:#fffffff2;border:1px solid #dce4ef;border-radius:5px;box-shadow:0 1px 4px #172e4822;color:#1d2b42;overflow-wrap:anywhere;}
-    .landmark-caption strong {display:block;font-size:12px;}
-    .landmark-caption small {display:block;font-size:11px;margin-top:2px;white-space:nowrap;color:#52637a;}
-    .empty-state {padding:24px 16px;margin:0 0 18px;border:1px dashed #d9e2ee;border-radius:10px;text-align:center;color:#68788d;font-size:12px;line-height:1.6;}
-    .project-section {margin-top:22px;padding-top:18px;border-top:1px solid #e8edf5;}
-    .project-section summary {font-size:12px;font-weight:700;cursor:pointer;margin-bottom:14px;}
-    .export-row {margin-top:9px;}
-    @media(max-width:760px) {
-       .app {--sidebar-width:min(356px,calc(100vw - 48px));display:block;}
-       .map-wrap {position:absolute;inset:0;}
-       .side {position:absolute;left:0;top:0;bottom:0;width:var(--sidebar-width);height:100dvh;}
-       .brand {padding:18px 52px 18px 14px;}.brand h1{font-size:14px;}.brand .sub{font-size:11px;}
-       .brand-mark {display:none;}
-       .scroll {padding:14px 10px;}.status {padding:10px 14px;min-height:38px;}
-       .icon-btn {min-height:44px;}
-       .map-header {top:12px;}
-       .badge-mode{font-size:10px;padding:7px 8px;}
-    }
-    @page {size:A4 landscape; margin:8mm;}
-    @media print {
-      html,body,.app{height:100%;min-height:0;margin:0;padding:0;background:white;}
-      .app {display:block;}
-      .side,.badge-mode,.leaflet-control-zoom,.settings-toggle {display:none !important;}
-      .map-wrap {position:relative;inset:auto;height:100%;width:100%;}
-      .map-header {padding-right:0;}
-      .map-header {top:8px;left:8px;right:auto;}
-      #map {height:100%;width:100%;}
-      .leaflet-control-attribution {font-size:8px !important;}
-      * {-webkit-print-color-adjust:exact;print-color-adjust:exact;}
-    }
-  </style>
+  <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
 <div class="app">
-  <button type="button" class="settings-toggle" id="toggleSettings" aria-label="Приховати меню" title="Приховати меню" aria-expanded="true" aria-controls="settingsPanel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg></button>
-  <aside class="side" id="settingsPanel" aria-label="Налаштування">
-    <header class="brand">
-      <div class="brand-main">
-        <div class="brand-mark" aria-hidden="true"></div>
-        <div><h1>Точки на карті</h1><p class="sub">Відстані та заштриховані сектори</p></div>
+  <aside class="side" id="settingsPanel" aria-label="Налаштування карти">
+    <header class="sidebar-header">
+      <h1>Точки на карті</h1>
+      <div class="title-row">
+        <span class="card-title-text" id="cardTitleText">Картка відстаней та обмежених зон</span>
+        <label class="sr-only" for="cardTitle">Назва картки</label>
+        <input id="cardTitle" type="text" value="Картка відстаней та обмежених зон" maxlength="90" hidden />
+        <button class="icon-btn" id="editTitle" type="button" aria-label="Редагувати назву картки" title="Редагувати назву картки">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m16 3 5 5L8 21H3v-5Z"/><path d="m14 5 5 5"/></svg>
+        </button>
       </div>
     </header>
+
     <div class="scroll">
-      <div class="list-heading"><span>Список точок</span><span class="chip" id="pointCount">0</span></div>
-      <p id="emptyPoints" class="empty-state">Натисніть на карту, щоб додати першу точку.<br>Наступний клік за межами кіл додасть нову.</p>
+      <div class="list-heading">
+        <div class="heading-label"><span>Список точок</span><span class="chip" id="pointCount">0</span></div>
+        <div class="heading-actions">
+          <button class="icon-btn" id="toggleAllVisibility" type="button" aria-label="Змінити видимість усіх точок" title="Змінити видимість усіх точок">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/><path data-eye-slash class="hidden" d="m3 3 18 18"/></svg>
+          </button>
+          <button class="icon-btn settings-gear" id="globalSettings" type="button" data-action="global-settings" aria-label="Загальні налаштування" title="Загальні налаштування">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3A1.7 1.7 0 0 0 10 3v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z"/></svg>
+          </button>
+        </div>
+      </div>
+      <p id="emptyPoints" class="empty-state">Натисніть на карту, щоб додати першу точку.</p>
       <ol id="pointList" class="point-list" aria-label="Точки та їхні налаштування"></ol>
-      <details class="project-section">
-        <summary>Проєкт і збереження</summary>
-        <div class="field"><label for="cardTitle">Назва картки</label><input id="cardTitle" type="text" value="Картка відстаней та обмежених зон" maxlength="90"/></div>
-        <div class="cols2"><button class="btn" id="exportJSON" type="button">Зберегти проєкт</button><button class="btn" id="importJSON" type="button">Відкрити проєкт</button></div>
-        <input type="file" id="filePicker" class="hidden" accept="application/json,.json" />
-        <div class="cols2 export-row"><button class="btn" id="exportGeoJSON" type="button">GeoJSON</button><button class="btn" id="print" type="button">Друк / PDF</button></div>
-        <button class="btn export-row" id="exportPoints" type="button">Експорт списку точок (CSV)</button>
-        <p class="fine">JSON зберігає назви, координати, кола та сектори кожної точки. CSV — список назв і координат. Для PDF: A4, альбомна орієнтація.</p>
-      </details>
     </div>
-    <div class="status" id="status"><b>Центр не вибрано.</b> Натисніть на карту, щоб розпочати.</div>
+
+    <footer class="sidebar-footer">
+      <button class="btn" id="importJSON" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4"/><path d="M4 19h16"/></svg>
+        Відкрити проєкт
+      </button>
+      <input type="file" id="filePicker" accept="application/json,.json" hidden />
+    </footer>
   </aside>
+
+  <button type="button" class="edge-tab settings-toggle" id="toggleSettings" aria-label="Приховати меню" title="Приховати меню" aria-expanded="true" aria-controls="settingsPanel">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg>
+  </button>
+  <button type="button" class="edge-tab save-toggle" id="saveToggle" aria-label="Відкрити меню збереження" title="Зберегти або експортувати" aria-expanded="false" aria-controls="saveMenu">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M5 3h12l2 2v16H5Z"/><path d="M8 3v6h8V3M8 21v-7h8v7"/></svg>
+  </button>
+  <div class="save-menu" id="saveMenu" hidden>
+    <button class="btn" id="exportJSON" type="button">Зберегти проєкт</button>
+    <button class="btn" id="exportPoints" type="button">Список точок CSV</button>
+    <button class="btn" id="exportGeoJSON" type="button">GeoJSON</button>
+    <button class="btn" id="print" type="button">Друк / PDF</button>
+  </div>
+
   <main class="map-wrap">
     <div id="map" role="application" aria-label="Інтерактивна географічна карта"></div>
     <div class="map-header"><div id="modeBadge" class="badge-mode hidden">Позначте початок сектора</div></div>
   </main>
 </div>
+
 <template id="pointTemplate">
-  <li class="point-card">
+  <li class="point-card" tabindex="0">
     <div class="point-head">
-      <button class="icon-btn point-grip" data-action="reorder-point" type="button" aria-label="Змінити порядок точки: перетягніть або натисніть стрілку вгору чи вниз" title="Перетягніть для зміни порядку"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="8" cy="5" r="1.5"/><circle cx="16" cy="5" r="1.5"/><circle cx="8" cy="12" r="1.5"/><circle cx="16" cy="12" r="1.5"/><circle cx="8" cy="19" r="1.5"/><circle cx="16" cy="19" r="1.5"/></svg></button>
-      <button class="icon-btn point-toggle" data-action="toggle-point" type="button" aria-expanded="true" aria-label="Згорнути налаштування точки" title="Згорнути налаштування точки"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></button>
-      <label class="sr-only" for="name">Назва точки</label><input class="point-name" id="name" data-field="name" type="text" maxlength="80" aria-label="Назва точки"/>
-      <button class="icon-btn" data-action="toggle-visibility" type="button" aria-pressed="true" aria-label="Приховати точку на карті" title="Приховати точку на карті"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/><path data-eye-slash class="hidden" d="m3 3 18 18"/></svg></button>
-      <button class="icon-btn" data-action="center-point" type="button" aria-label="Центрувати на точці" title="Центрувати на точці"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/><path d="M12 1v5m0 12v5M1 12h5m12 0h5"/></svg></button>
-      <button class="icon-btn point-delete" data-action="delete-point" type="button" aria-label="Видалити точку" title="Видалити точку"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 14h10l1-14M10 10v8m4-8v8"/></svg></button>
+      <span class="point-name-text"></span>
+      <label class="sr-only" for="name">Назва точки</label>
+      <input class="point-name" id="name" data-field="name" type="text" maxlength="80" hidden />
+      <button class="icon-btn" data-action="edit-name" type="button" aria-label="Редагувати назву точки" title="Редагувати назву точки">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m16 3 5 5L8 21H3v-5Z"/><path d="m14 5 5 5"/></svg>
+      </button>
+      <button class="icon-btn" data-action="toggle-visibility" type="button" aria-pressed="true" aria-label="Приховати точку на карті" title="Приховати точку на карті">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/><path data-eye-slash class="hidden" d="m3 3 18 18"/></svg>
+      </button>
+      <button class="icon-btn" data-action="center-point" type="button" aria-label="Центрувати на точці" title="Центрувати на точці">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/><path d="M12 1v5m0 12v5M1 12h5m12 0h5"/></svg>
+      </button>
+      <button class="icon-btn point-toggle" data-action="toggle-point" type="button" aria-expanded="true" aria-label="Згорнути налаштування точки" title="Згорнути налаштування точки">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
+      </button>
     </div>
+
     <div class="point-body">
-      <form class="section" data-action="coordinates">
-        <div class="section-title">Координати</div>
-        <div class="cols2">
-          <div class="field"><label for="lat">Широта</label><input type="number" id="lat" data-field="lat" min="-85" max="85" step="any" required/></div>
-          <div class="field"><label for="lng">Довгота</label><input type="number" id="lng" data-field="lng" min="-180" max="180" step="any" required/></div>
+      <section class="section coordinate-section">
+        <div class="section-heading">
+          <strong>Координати</strong>
+          <button class="coordinate-text" data-action="edit-coordinates" type="button"></button>
         </div>
-        <button type="submit" class="btn">Застосувати координати</button>
-        <p class="fine">Вибрану точку можна перемістити, перетягнувши її центр на карті.</p>
-      </form>
-      <section class="section">
-        <div class="section-title">Кола відстаней</div>
-        <div class="cols2">
-          <div class="field"><label for="step">Крок між колами, м</label><input id="step" data-setting="step" type="number" min="1" max="100000" step="1"/></div>
-          <div class="field"><label for="count">Кількість кіл</label><input id="count" data-setting="count" type="number" min="1" max="40" step="1"/></div>
-        </div>
-        <div class="cols2">
-          <div class="field"><label for="color">Колір кіл</label><input id="color" data-setting="color" type="color"/></div>
-          <div class="field"><label for="width">Товщина лінії, px</label><input id="width" data-setting="width" type="number" min="1" max="8" step="0.5"/></div>
-        </div>
-        <div class="field">
-          <div class="range-head"><label for="size">Розмір підписів</label><span data-readout="size"></span></div>
-          <input id="size" data-setting="size" type="range" min="9" max="30" step="1"/>
-        </div>
-        <div class="cols2">
-          <div class="field"><label for="labelColor">Колір тексту</label><input id="labelColor" data-setting="labelColor" type="color"/></div>
-          <div class="field"><label for="bearing">Кут підписів, °</label><input id="bearing" data-setting="bearing" type="number" min="0" max="360" step="any"/></div>
-        </div>
-        <div class="cols2">
-          <div class="field"><label for="paddingY">Відступ зверху/знизу, px</label><input id="paddingY" data-setting="paddingY" type="number" min="0" max="50" step="1"/></div>
-          <div class="field"><label for="paddingX">Відступ зліва/справа, px</label><input id="paddingX" data-setting="paddingX" type="number" min="0" max="50" step="1"/></div>
-        </div>
-        <p class="fine">0° — північ, 90° — схід; за годинниковою стрілкою. Налаштування стосуються лише цієї точки.</p>
+        <form data-action="coordinates" hidden>
+          <div class="cols2">
+            <div class="field"><label for="lat">Широта</label><input type="number" id="lat" data-field="lat" min="-85" max="85" step="any" required /></div>
+            <div class="field"><label for="lng">Довгота</label><input type="number" id="lng" data-field="lng" min="-180" max="180" step="any" required /></div>
+          </div>
+          <button type="submit" class="btn btn-primary">Застосувати</button>
+        </form>
       </section>
-      <section>
-        <div class="sector-heading">
+
+      <section class="section">
+        <div class="section-heading">
+          <strong>Кола відстаней</strong>
+          <button class="icon-btn settings-gear" data-action="ring-settings" type="button" aria-label="Налаштування кіл" title="Налаштування кіл">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3A1.7 1.7 0 0 0 10 3v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z"/></svg>
+          </button>
+        </div>
+        <div class="cols2">
+          <div class="field"><label for="maxDistance">Макс. відстань, м</label><input id="maxDistance" data-setting="maxDistance" type="number" min="1" max="1000000" step="1" /></div>
+          <div class="field"><label for="step">Крок, м</label><input id="step" data-setting="step" type="number" min="1" max="100000" step="1" /></div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-heading">
           <strong>Заштриховані сектори</strong>
-          <div class="sector-actions">
-            <button class="btn" data-action="add-zone" type="button" aria-label="Додати сектор" title="Додати сектор">+ Сектор</button>
-            <button class="icon-btn" data-action="draw-zone" type="button" aria-label="Позначити сектор двома кліками" title="Позначити сектор двома кліками"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="m16 3 5 5-12 12-6 1 1-6Z M13 6l5 5"/></svg></button>
+          <div class="section-actions">
+            <button class="icon-btn settings-gear" data-action="sector-settings" type="button" aria-label="Типові налаштування секторів" title="Типові налаштування секторів">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3A1.7 1.7 0 0 0 10 3v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z"/></svg>
+            </button>
+            <button class="btn btn-compact" data-action="add-zone" type="button">+ Сектор</button>
+            <button class="icon-btn" data-action="draw-zone" type="button" aria-label="Позначити сектор двома кліками" title="Позначити сектор двома кліками">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m16 3 5 5-12 12-6 1 1-6Z M13 6l5 5"/></svg>
+            </button>
           </div>
         </div>
-        <p class="fine no-zones">Секторів поки немає. Натисніть +, щоб додати.</p>
+        <p class="no-zones">Секторів поки немає.</p>
         <ol class="zone-list" aria-label="Сектори точки"></ol>
       </section>
-      <section class="landmark-section">
-        <div class="sector-heading"><strong>Орієнтири</strong><div class="sector-actions"><button class="btn" data-action="add-landmark" type="button">+ Орієнтир</button></div></div>
-        <p class="fine">Натисніть +, потім місце в межах кіл на карті. Відстань і азимут рахуються від цієї точки; орієнтири залишаються на своїх координатах.</p>
+
+      <section class="section">
+        <div class="section-heading">
+          <strong>Орієнтири</strong>
+          <div class="section-actions">
+            <button class="icon-btn settings-gear" data-action="landmark-settings" type="button" aria-label="Налаштування орієнтирів" title="Налаштування орієнтирів">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3A1.7 1.7 0 0 0 10 3v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z"/></svg>
+            </button>
+            <button class="btn btn-compact" data-action="add-landmark" type="button">+ Орієнтир</button>
+          </div>
+        </div>
         <ol class="landmark-list" aria-label="Орієнтири точки"></ol>
       </section>
+
+      <button class="btn btn-danger delete-point" data-action="delete-point" type="button">Видалити точку</button>
     </div>
   </li>
 </template>
-<template id="landmarkTemplate">
-  <li class="landmark-item">
-    <label class="sr-only" for="landmarkName">Назва орієнтира</label><input id="landmarkName" data-landmark-field="name" type="text" maxlength="80" aria-label="Назва орієнтира"/>
-    <button class="icon-btn" data-action="delete-landmark" type="button" aria-label="Видалити орієнтир" title="Видалити орієнтир"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 14h10l1-14M10 10v8m4-8v8"/></svg></button>
-    <span class="landmark-info"></span>
-  </li>
-</template>
+
 <template id="zoneTemplate">
   <li class="zone-card">
-    <div class="zone-head"><span class="zone-title"></span><button class="icon-btn" data-action="delete-zone" type="button" aria-label="Видалити сектор" title="Видалити сектор"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 14h10l1-14M10 10v8m4-8v8"/></svg></button></div>
-    <div class="cols2">
-      <div class="field"><label for="start">Початковий кут, °</label><input id="start" data-zone-field="start" type="number" min="0" max="359.99" step="any"/></div>
-      <div class="field"><label for="end">Кінцевий кут, °</label><input id="end" data-zone-field="end" type="number" min="0" max="360" step="any"/></div>
-    </div>
-    <div class="cols2">
-      <div class="field"><label for="inner">Внутрішній радіус, м</label><input id="inner" data-zone-field="inner" type="number" min="0" max="1000000" step="any"/></div>
-      <div class="field"><label for="outer">Зовнішній радіус, м</label><input id="outer" data-zone-field="outer" type="number" min="1" max="1000000" step="any"/></div>
-    </div>
-    <div class="cols2">
-      <div class="field"><label for="zoneColor">Колір штрихування</label><input id="zoneColor" data-zone-field="color" type="color"/></div>
-      <div class="field"><label for="opacity">Насиченість</label><input id="opacity" data-zone-field="opacity" type="number" min="0" max="1" step="0.05"/></div>
-    </div>
+    <label class="sr-only" for="start">Початковий кут у градусах</label>
+    <div class="input-unit"><input id="start" data-zone-field="start" type="number" min="0" max="359.99" step="any" aria-label="Початковий кут у градусах" /><span class="unit" aria-hidden="true">°</span></div>
+    <label class="sr-only" for="end">Кінцевий кут у градусах</label>
+    <div class="input-unit"><input id="end" data-zone-field="end" type="number" min="0" max="360" step="any" aria-label="Кінцевий кут у градусах" /><span class="unit" aria-hidden="true">°</span></div>
+    <button class="icon-btn settings-gear" data-action="zone-settings" type="button" aria-label="Налаштування сектора" title="Налаштування сектора">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3A1.7 1.7 0 0 0 10 3v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z"/></svg>
+    </button>
+    <button class="icon-btn danger-icon" data-action="delete-zone" type="button" aria-label="Видалити сектор" title="Видалити сектор">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 14h10l1-14M10 10v8m4-8v8"/></svg>
+    </button>
   </li>
 </template>
+
+<template id="landmarkTemplate">
+  <li class="landmark-item">
+    <span class="landmark-name"></span>
+    <button class="icon-btn" data-action="edit-landmark" type="button" aria-label="Редагувати орієнтир" title="Редагувати орієнтир">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m16 3 5 5L8 21H3v-5Z"/><path d="m14 5 5 5"/></svg>
+    </button>
+    <button class="icon-btn danger-icon" data-action="delete-landmark" type="button" aria-label="Видалити орієнтир" title="Видалити орієнтир">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 14h10l1-14M10 10v8m4-8v8"/></svg>
+    </button>
+  </li>
+</template>
+
+<dialog id="settingsDialog" aria-labelledby="settingsTitle">
+  <form id="settingsForm" method="dialog">
+    <header class="dialog-header">
+      <div>
+        <h2 id="settingsTitle">Налаштування</h2>
+        <p id="settingsScope"></p>
+      </div>
+      <button class="icon-btn" id="closeSettings" type="button" aria-label="Закрити налаштування" title="Закрити">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>
+      </button>
+    </header>
+    <div id="settingsFields"></div>
+    <footer class="dialog-actions">
+      <button class="btn" id="resetSettings" type="button">Скинути</button>
+      <button class="btn btn-primary" type="submit">Зберегти</button>
+    </footer>
+  </form>
+</dialog>
+
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="anonymous"></script>
-<script>
-(() => {
-  'use strict';
-  const $ = id => document.getElementById(id);
-  const f64 = x => Number(x);
-  const clamp = (n,lo,hi) => Math.min(hi,Math.max(lo,n));
-  const valid = (n,lo,hi,fallback) => Number.isFinite(n) ? clamp(n,lo,hi) : fallback;
-  const fmt = n => Math.round(n).toLocaleString('uk-UA') + ' м';
-  const svgNs='http://www.w3.org/2000/svg';
-  const createSvg = name => document.createElementNS(svgNs,name);
-  // Direct geodesic on the WGS84 ellipsoid (Vincenty), meters + clockwise azimuth from north.
-  function destination(lat, lon, distance, bearing) {
-    if (!(distance>0)) return [lat,lon];
-    const a=6378137, b=6356752.314245179, f=1/298.257223563;
-    const alpha1=bearing*Math.PI/180, phi1=lat*Math.PI/180;
-    const tanU1=(1-f)*Math.tan(phi1), cosU1=1/Math.sqrt(1+tanU1*tanU1),sinU1=tanU1*cosU1;
-    const sinAlpha=cosU1*Math.sin(alpha1),cos2Alpha=1-sinAlpha*sinAlpha;
-    const u2=cos2Alpha*(a*a-b*b)/(b*b);
-    const A=1+u2/16384*(4096+u2*(-768+u2*(320-175*u2)));
-    const B=u2/1024*(256+u2*(-128+u2*(74-47*u2)));
-    const sigma1=Math.atan2(tanU1,Math.cos(alpha1));
-    let sigma=distance/(b*A),prior=Infinity,cs2sm=0,sinSigma=0,cosSigma=0;
-    for(let i=0;i<30 && Math.abs(sigma-prior)>1e-13;i++) {
-      cs2sm=Math.cos(2*sigma1+sigma);sinSigma=Math.sin(sigma);cosSigma=Math.cos(sigma);
-      const delta=B*sinSigma*(cs2sm+B/4*(cosSigma*(-1+2*cs2sm*cs2sm)-B/6*cs2sm*(-3+4*sinSigma*sinSigma)*(-3+4*cs2sm*cs2sm)));
-      prior=sigma; sigma=distance/(b*A)+delta;
-    }
-    sinSigma=Math.sin(sigma); cosSigma=Math.cos(sigma);cs2sm=Math.cos(2*sigma1+sigma);
-    const t=sinU1*sinSigma-cosU1*cosSigma*Math.cos(alpha1);
-    const phi2=Math.atan2(sinU1*cosSigma+cosU1*sinSigma*Math.cos(alpha1),(1-f)*Math.sqrt(sinAlpha*sinAlpha+t*t));
-    const lambda=Math.atan2(sinSigma*Math.sin(alpha1),cosU1*cosSigma-sinU1*sinSigma*Math.cos(alpha1));
-    const C=f/16*cos2Alpha*(4+f*(4-3*cos2Alpha));
-    const L=lambda-(1-C)*f*sinAlpha*(sigma+C*sinSigma*(cs2sm+C*cosSigma*(-1+2*cs2sm*cs2sm)));
-    const lon2=lon+L*180/Math.PI;
-    return [phi2*180/Math.PI,((lon2+540)%360)-180];
-  }
-  function azimuth(from,to) {
-    const lat1=from.lat*Math.PI/180,lat2=to.lat*Math.PI/180,dl=(to.lng-from.lng)*Math.PI/180;
-    const y=Math.sin(dl)*Math.cos(lat2),x=Math.cos(lat1)*Math.sin(lat2)-Math.sin(lat1)*Math.cos(lat2)*Math.cos(dl);
-    return (Math.atan2(y,x)*180/Math.PI+360)%360;
-  }
-  function ringPoints(center,radius) {
-    const n=180,points=[];
-    for(let i=0;i<=n;i++)points.push(destination(center.lat,center.lng,radius,i*360/n));
-    return points;
-  }
-  function arcPoints(center,radius,start,end) {
-    const diff=(end-start+360)%360;
-    const sweep=(diff===0 && start!==end)?360:diff;
-    const n=Math.max(2,Math.ceil(sweep/2));
-    const list=[];
-    for(let i=0;i<=n;i++)list.push(destination(center.lat,center.lng,radius,start+sweep*i/n));
-    return list;
-  }
-  function zonePolygon(center,z) {
-    const start=clamp(z.start,0,359.99),end=clamp(z.end,0,360);
-    const outer=arcPoints(center,z.outer,start,end);
-    if(z.inner>0) {
-      const inner=arcPoints(center,z.inner,start,end).reverse();
-      return [...outer,...inner];
-    }
-    return [[center.lat,center.lng],...outer];
-  }
-  const map=L.map('map',{zoomControl:true,preferCanvas:false,worldCopyJump:false,zoomSnap:0.25});
-  map.zoomControl.setPosition('topright');
-  map.setView([50.4501,30.5234],14);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
-    maxZoom:19,attribution:'© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors',crossOrigin:true
-  }).addTo(map);
-  L.control.scale({metric:true,imperial:false,position:'bottomleft'}).addTo(map);
-  const renderer=L.svg({padding:0.6});renderer.addTo(map);
-  const ringsLayer=L.layerGroup().addTo(map),labelsLayer=L.layerGroup().addTo(map),zonesLayer=L.layerGroup().addTo(map),landmarksLayer=L.layerGroup().addTo(map),centerLayer=L.layerGroup().addTo(map);
-  let points=[],center=null,pointId=1,zoneId=1,landmarkId=1,mode='center',draftStart=0,preview=null;
-  let ringBounds=null;
-  // This SVG pattern lives in the same renderer as sector polygon paths.
-  const defs=createSvg('defs');renderer._container.insertBefore(defs,renderer._container.firstChild);
-  function getPattern(z) {
-    const id='zonal-hatch-'+z.id;
-    let p=document.getElementById(id);
-    if(!p){
-      p=createSvg('pattern');p.id=id;p.setAttribute('patternUnits','userSpaceOnUse');p.setAttribute('width','9');p.setAttribute('height','9');p.setAttribute('patternTransform','rotate(45)');
-      const rect=createSvg('rect');rect.setAttribute('x','0');rect.setAttribute('y','0');rect.setAttribute('width','9');rect.setAttribute('height','9');p.appendChild(rect);
-      const line=createSvg('line');line.setAttribute('x1','0');line.setAttribute('y1','0');line.setAttribute('x2','0');line.setAttribute('y2','9');line.setAttribute('stroke-width','2');p.appendChild(line);
-      defs.appendChild(p);
-    }
-    p.children[0].setAttribute('fill',z.color);
-    p.children[0].setAttribute('fill-opacity',String(z.opacity));
-    p.children[1].setAttribute('stroke',z.color);
-    p.children[1].setAttribute('stroke-opacity','0.8');
-    return id;
-  }
-  function normalizeSettings(s={}) {
-    return {
-      step:valid(f64(s.step),1,100000,100),count:valid(Math.trunc(f64(s.count)),1,40,5),
-      color:/^#[0-9a-f]{6}$/i.test(s.color)?s.color:'#3268ce',
-      width:valid(f64(s.width),1,8,2),size:valid(f64(s.size),9,30,14),
-      labelColor:/^#[0-9a-f]{6}$/i.test(s.labelColor)?s.labelColor:'#193d77',
-      bearing:valid(f64(s.bearing),0,360,0),
-      paddingX:valid(f64(s.paddingX),0,50,5),paddingY:valid(f64(s.paddingY),0,50,2)
-    };
-  }
-  const pointName=point=>point.name.trim()||'Точка '+(points.indexOf(point)+1);
-  const pointCard=point=>$('point-'+point.id);
-  function bindFieldIds(element,prefix) {
-    element.querySelectorAll('[id]').forEach(input=>{
-      const oldId=input.id;input.id=prefix+'-'+oldId;
-      element.querySelectorAll(`label[for="${oldId}"]`).forEach(label=>label.htmlFor=input.id);
-    });
-  }
-  function appendZoneEditor(point,z) {
-    const item=$('zoneTemplate').content.firstElementChild.cloneNode(true);
-    item.dataset.zoneId=z.id;bindFieldIds(item,'zone-'+z.id);
-    item.querySelectorAll('[data-zone-field]').forEach(input=>input.value=z[input.dataset.zoneField]);
-    pointCard(point).querySelector('.zone-list').appendChild(item);
-    updateZoneList(point);
-  }
-  function updateZoneList(point) {
-    const card=pointCard(point);
-    card.querySelector('.no-zones').hidden=point.zones.length>0;
-    card.querySelectorAll('.zone-card').forEach((item,i)=>{
-      item.querySelector('.zone-title').textContent='Сектор '+(i+1);
-    });
-  }
-  function appendPointEditor(point) {
-    const card=$('pointTemplate').content.firstElementChild.cloneNode(true);
-    card.id='point-'+point.id;card.dataset.pointId=point.id;
-    bindFieldIds(card,'point-'+point.id);
-    card.querySelector('[data-field="name"]').value=point.name;
-    card.querySelector('[data-field="lat"]').value=point.lat.toFixed(6);
-    card.querySelector('[data-field="lng"]').value=point.lng.toFixed(6);
-    card.querySelectorAll('[data-setting]').forEach(input=>input.value=point.settings[input.dataset.setting]);
-    card.querySelector('[data-readout="size"]').textContent=point.settings.size+' px';
-    const body=card.querySelector('.point-body');body.id='point-body-'+point.id;
-    card.querySelector('.point-toggle').setAttribute('aria-controls',body.id);
-    $('pointList').appendChild(card);
-    setPointExpanded(point,!point.collapsed);
-    setPointVisible(point,point.visible);
-    point.zones.forEach(z=>appendZoneEditor(point,z));
-    point.landmarks.forEach(landmark=>appendLandmarkEditor(point,landmark));
-    updateZoneList(point);
-    $('emptyPoints').hidden=true;$('pointCount').textContent=points.length;
-  }
-  const landmarkName=landmark=>landmark.name.trim()||'Орієнтир';
-  function landmarkReadout(point,landmark) {
-    return `${fmt(map.distance(point,landmark))} · ${((Math.round(azimuth(point,landmark)*10)/10)%360).toFixed(1)}°`;
-  }
-  function appendLandmarkEditor(point,landmark) {
-    const item=$('landmarkTemplate').content.firstElementChild.cloneNode(true);
-    item.dataset.landmarkId=landmark.id;bindFieldIds(item,'landmark-'+landmark.id);
-    item.querySelector('[data-landmark-field="name"]').value=landmark.name;
-    item.querySelector('.landmark-info').textContent=landmarkReadout(point,landmark);
-    pointCard(point).querySelector('.landmark-list').appendChild(item);
-  }
-  function setPointExpanded(point,expanded) {
-    point.collapsed=!expanded;
-    const card=pointCard(point),toggle=card.querySelector('.point-toggle');
-    card.querySelector('.point-body').hidden=!expanded;
-    toggle.setAttribute('aria-expanded',String(expanded));
-    const label=(expanded?'Згорнути':'Розгорнути')+' налаштування точки';
-    toggle.setAttribute('aria-label',label);toggle.title=label;
-  }
-  function setPointVisible(point,visible) {
-    point.visible=visible;
-    const card=pointCard(point),button=card.querySelector('[data-action="toggle-visibility"]');
-    card.classList.toggle('map-hidden',!visible);
-    button.setAttribute('aria-pressed',String(visible));
-    const label=visible?'Приховати точку на карті':'Показати точку на карті';
-    button.setAttribute('aria-label',label);button.title=label;
-    button.querySelector('[data-eye-slash]').classList.toggle('hidden',visible);
-  }
-  function styleLabel(label,settings) {
-    return `<div class="distance-label" style="font-size:${settings.size}px;color:${settings.labelColor};padding:${settings.paddingY}px ${settings.paddingX}px;">${fmt(label)}</div>`;
-  }
-  function updateStatus() {
-    if(center){
-      const s=center.settings;
-      $('status').textContent=`${pointName(center)}${center.visible?'':' (приховано)'} · ${center.lat.toFixed(6)}, ${center.lng.toFixed(6)} · Радіус: ${fmt(s.step*s.count)} · секторів: ${center.zones.length} · орієнтирів: ${center.landmarks.length}`;
-    } else {
-      $('status').innerHTML='<b>Центр не вибрано.</b> Натисніть на карту, щоб розпочати.';
-    }
-  }
-  function draw(keepCenters=false) {
-    ringsLayer.clearLayers();labelsLayer.clearLayers();zonesLayer.clearLayers();landmarksLayer.clearLayers();
-    if(!keepCenters)centerLayer.clearLayers();
-    ringBounds=null;defs.replaceChildren();
-    if(!center){ updateStatus();return; }
-    const bounds=L.latLngBounds([]);
-    for(const point of points) {
-      point.landmarks.forEach(landmark=>{
-        pointCard(point).querySelector(`[data-landmark-id="${landmark.id}"] .landmark-info`).textContent=landmarkReadout(point,landmark);
-      });
-      if(!point.visible)continue;
-      const s=point.settings;
-      if(!keepCenters) {
-        const marker=L.marker([point.lat,point.lng],{interactive:point===center,keyboard:point===center,draggable:point===center,bubblingMouseEvents:true,title:pointName(point),icon:L.divIcon({className:'',html:`<div class="center-dot${point===center?' selected':''}"></div>`,iconSize:[16,16],iconAnchor:[8,8]})}).addTo(centerLayer);
-        marker.on('dragstart',()=>setMode('center'));
-        marker.on('drag',()=>{
-          const position=marker.getLatLng().wrap();
-          point.lat=clamp(position.lat,-85,85);point.lng=position.lng;
-          marker.setLatLng([point.lat,point.lng]);
-          pointCard(point).querySelector('[data-field="lat"]').value=point.lat.toFixed(6);
-          pointCard(point).querySelector('[data-field="lng"]').value=point.lng.toFixed(6);
-          draw(true);
-        });
-        marker.on('dragend',()=>draw());
-      }
-      for(let i=1;i<=s.count;i++) {
-        const distance=i*s.step,ring=ringPoints(point,distance);
-        L.polyline(ring,{color:s.color,weight:s.width,opacity:.95,renderer,interactive:false,lineJoin:'round'}).addTo(ringsLayer);
-        if(i===s.count)ring.forEach(p=>bounds.extend(p));
-        const lp=destination(point.lat,point.lng,distance,s.bearing);
-        L.marker(lp,{interactive:false,icon:L.divIcon({className:'',html:styleLabel(distance,s),iconSize:[0,0],iconAnchor:[0,0]})}).addTo(labelsLayer);
-      }
-      for(const z of point.zones){
-        const polygon=L.polygon(zonePolygon(point,z),{color:z.color,weight:1.5,opacity:.9,fillOpacity:1,renderer,interactive:false}).addTo(zonesLayer);
-        const patternId=getPattern(z);
-        if(polygon._path)polygon._path.style.fill=`url(#${patternId})`;
-      }
-      for(const landmark of point.landmarks) {
-        const html=document.createElement('div'),dot=document.createElement('span'),caption=document.createElement('div');
-        dot.className='landmark-dot';caption.className='landmark-caption';
-        const name=document.createElement('strong'),info=document.createElement('small');
-        name.textContent=landmarkName(landmark);info.textContent=landmarkReadout(point,landmark);
-        caption.append(name,info);html.append(dot,caption);
-        L.marker([landmark.lat,landmark.lng],{interactive:false,icon:L.divIcon({className:'',html,iconSize:[0,0],iconAnchor:[0,0]})}).addTo(landmarksLayer);
-      }
-    }
-    ringBounds=bounds;
-    updateStatus();
-  }
-  function fitMap() {
-    if(center && ringBounds?.isValid())map.fitBounds(ringBounds,{padding:[42,42],maxZoom:18,animate:false});
-  }
-  function focusPoint(point) {
-    if(matchMedia('(max-width:760px)').matches)setSidebarOpen(false);
-    map.invalidateSize({animate:false});
-    const bounds=L.latLngBounds(ringPoints(point,point.settings.step*point.settings.count));
-    point.zones.forEach(z=>zonePolygon(point,z).forEach(p=>bounds.extend(p)));
-    point.landmarks.forEach(landmark=>bounds.extend([landmark.lat,landmark.lng]));
-    map.fitBounds(bounds,{padding:[50,50],maxZoom:19,animate:false});
-  }
-  function validCoords(lat,lng) {
-    return Number.isFinite(lat)&&Number.isFinite(lng)&&lat>=-85&&lat<=85&&lng>=-180&&lng<=180;
-  }
-  function selectPoint(point,reveal=true) {
-    setMode('center');
-    center=point;
-    points.forEach(p=>{
-      const card=pointCard(p);card.classList.toggle('selected',p===point);
-      if(p===point)card.setAttribute('aria-current','true');else card.removeAttribute('aria-current');
-    });
-    if(point&&reveal) {
-      setPointExpanded(point,true);
-      pointCard(point).querySelector('.point-head').scrollIntoView({block:'nearest'});
-    }
-    draw();
-  }
-  function addPoint(lat,lng) {
-    if(!validCoords(lat,lng)) {alert('Введіть коректні координати (широта −85…85, довгота −180…180).');return;}
-    const id=pointId++;
-    const point={id,name:'Точка '+id,lat,lng,settings:normalizeSettings(),zones:[],landmarks:[],collapsed:false,visible:true};
-    points.push(point);appendPointEditor(point);selectPoint(point);
-  }
-  function addZone(point,start=30,end=90){
-    const s=point.settings;
-    const z={id:zoneId++,start,end,inner:0,outer:s.step*s.count,color:'#b94a56',opacity:0.2};
-    point.zones.push(z);appendZoneEditor(point,z);draw();return z;
-  }
-  function setMode(next){
-    mode=next;
-    points.forEach(point=>{
-      pointCard(point)?.querySelector('[data-action="draw-zone"]').classList.toggle('active',point===center&&(next==='start'||next==='end'));
-      pointCard(point)?.querySelector('[data-action="add-landmark"]').classList.toggle('active',point===center&&next==='landmark');
-    });
-    $('modeBadge').classList.toggle('hidden',next==='center');
-    $('modeBadge').textContent=next==='center'?'':`${pointName(center)}: ${next==='landmark'?'позначте орієнтир у межах кіл':next==='start'?'позначте початковий напрямок':'позначте кінцевий напрямок'} (Esc — скасувати)`;
-    map.getContainer().style.cursor=next==='center'||next==='landmark'?'crosshair':'cell';
-    if(preview){map.removeLayer(preview);preview=null;}
-  }
-  map.on('click',ev=>{
-    if(mode==='center') {
-      let nearest=null,nearestDistance=Infinity;
-      for(const point of points) {
-        if(!point.visible)continue;
-        const distance=map.distance(ev.latlng,point);
-        if(distance<=point.settings.step*point.settings.count && distance<nearestDistance){nearest=point;nearestDistance=distance;}
-      }
-      if(nearest)selectPoint(nearest);
-      else addPoint(ev.latlng.lat,ev.latlng.lng);
-    }
-    else if(mode==='landmark') {
-      const s=center.settings;
-      if(!validCoords(ev.latlng.lat,ev.latlng.lng))return;
-      if(map.distance(center,ev.latlng)>s.step*s.count){alert('Оберіть місце орієнтира в межах зовнішнього кола точки.');return;}
-      const landmark={id:landmarkId++,name:'Орієнтир '+(center.landmarks.length+1),lat:ev.latlng.lat,lng:ev.latlng.lng};
-      center.landmarks.push(landmark);appendLandmarkEditor(center,landmark);setMode('center');draw();
-    }
-    else if(mode==='start'){draftStart=azimuth(center,ev.latlng);setMode('end');}
-    else if(mode==='end'){
-      const start=(Math.round(draftStart*10)/10)%360;
-      let end=Math.round(azimuth(center,ev.latlng)*10)/10;
-      if(Math.abs(end-start)<0.05)end=(start+30)%360;
-      addZone(center,start,end);setMode('center');
-    }
-  });
-  map.on('mousemove',ev=>{
-    if(mode!=='end'||!center)return;
-    if(preview){map.removeLayer(preview);preview=null;}
-    const end=azimuth(center,ev.latlng),s=center.settings;
-    preview=L.polygon(zonePolygon(center,{start:draftStart,end,inner:0,outer:s.count*s.step}),{color:'#b94a56',weight:2,opacity:.7,fillColor:'#db8e98',fillOpacity:.17,dashArray:'5 4',renderer,interactive:false}).addTo(map);
-  });
-  $('pointList').addEventListener('submit',ev=>{
-    ev.preventDefault();
-    const form=ev.target;if(!form.reportValidity())return;
-    const point=points.find(p=>p.id===Number(form.closest('.point-card').dataset.pointId));
-    const lat=Number(form.querySelector('[data-field="lat"]').value),lng=Number(form.querySelector('[data-field="lng"]').value);
-    if(!validCoords(lat,lng))return;
-    point.lat=lat;point.lng=lng;selectPoint(point,false);
-  });
-  function updateField(ev) {
-    const input=ev.target,card=input.closest('.point-card');if(!card)return;
-    const point=points.find(p=>p.id===Number(card.dataset.pointId));
-    if(input.dataset.field==='name') {
-      point.name=input.value;updateStatus();return;
-    }
-    if(input.dataset.landmarkField==='name') {
-      const landmark=point.landmarks.find(l=>l.id===Number(input.closest('.landmark-item').dataset.landmarkId));
-      landmark.name=input.value;draw();return;
-    }
-    if((input.dataset.setting||input.dataset.zoneField)&&(input.value===''||!input.checkValidity()))return;
-    if(input.dataset.setting) {
-      const key=input.dataset.setting;
-      point.settings=normalizeSettings({...point.settings,[key]:input.value});
-      card.querySelector('[data-readout="size"]').textContent=point.settings.size+' px';
-      draw();
-    } else if(input.dataset.zoneField) {
-      const item=input.closest('.zone-card'),z=point.zones.find(z=>z.id===Number(item.dataset.zoneId));
-      const key=input.dataset.zoneField;z[key]=key==='color'?input.value:Number(input.value);
-      if(z.inner>=z.outer){z.inner=Math.max(0,z.outer-1);item.querySelector('[data-zone-field="inner"]').value=z.inner;}
-      draw();
-    }
-  }
-  $('pointList').addEventListener('input',updateField);
-  $('pointList').addEventListener('change',updateField);
-  $('pointList').addEventListener('click',ev=>{
-    const button=ev.target.closest('button[data-action]');if(!button)return;
-    const point=points.find(p=>p.id===Number(button.closest('.point-card').dataset.pointId));
-    switch(button.dataset.action) {
-      case 'toggle-point':
-        if(center===point)setMode('center');
-        setPointExpanded(point,point.collapsed);break;
-      case 'center-point':
-        setPointVisible(point,true);selectPoint(point,false);focusPoint(point);break;
-      case 'toggle-visibility':
-        if(center===point)setMode('center');
-        setPointVisible(point,!point.visible);draw();break;
-      case 'delete-point': {
-        setMode('center');
-        const index=points.indexOf(point);points.splice(index,1);pointCard(point).remove();
-        $('pointCount').textContent=points.length;$('emptyPoints').hidden=points.length>0;
-        selectPoint(center===point?(points[index]||points[index-1]||null):center,false);break;
-      }
-      case 'add-zone':
-        selectPoint(point,false);addZone(point);break;
-      case 'draw-zone':
-        if(center===point&&mode!=='center')setMode('center');
-        else {setPointVisible(point,true);selectPoint(point,false);setMode('start');}
-        break;
-      case 'add-landmark':
-        if(center===point&&mode==='landmark')setMode('center');
-        else {setPointVisible(point,true);selectPoint(point,false);setMode('landmark');}
-        break;
-      case 'delete-landmark': {
-        const item=button.closest('.landmark-item');
-        point.landmarks.splice(point.landmarks.findIndex(l=>l.id===Number(item.dataset.landmarkId)),1);
-        item.remove();draw();break;
-      }
-      case 'delete-zone': {
-        const item=button.closest('.zone-card');
-        point.zones.splice(point.zones.findIndex(z=>z.id===Number(item.dataset.zoneId)),1);
-        item.remove();updateZoneList(point);draw();break;
-      }
-    }
-  });
-  let reorder=null,reorderFrameId=null;
-  function movePointTo(point,index) {
-    index=clamp(index,0,points.length-1);
-    const current=points.indexOf(point);if(current===index)return;
-    points.splice(current,1);points.splice(index,0,point);
-    $('pointList').insertBefore(pointCard(point),points[index+1]?pointCard(points[index+1]):null);
-    updateStatus();
-  }
-  function reorderFrame() {
-    if(!reorder?.started)return;
-    const scroll=document.querySelector('.scroll'),bounds=scroll.getBoundingClientRect(),y=reorder.y;
-    if(y<bounds.top+32)scroll.scrollTop-=12;else if(y>bounds.bottom-32)scroll.scrollTop+=12;
-    const others=points.filter(point=>point!==reorder.point);
-    const index=others.findIndex(point=>{
-      const r=pointCard(point).querySelector('.point-head').getBoundingClientRect();
-      return y<r.top+r.height/2;
-    });
-    movePointTo(reorder.point,index<0?others.length:index);
-    reorderFrameId=requestAnimationFrame(reorderFrame);
-  }
-  function finishReorder(cancelled=false) {
-    if(!reorder)return;
-    const state=reorder;reorder=null;cancelAnimationFrame(reorderFrameId);
-    if($('pointList').hasPointerCapture(state.pointerId))$('pointList').releasePointerCapture(state.pointerId);
-    if(!state.started)return;
-    if(cancelled)movePointTo(state.point,state.index);
-    pointCard(state.point).classList.remove('reordering');
-    setPointExpanded(state.point,!state.collapsed);
-    pointCard(state.point).querySelector('.point-head').scrollIntoView({block:'nearest'});
-    draw();
-  }
-  $('pointList').addEventListener('pointerdown',ev=>{
-    const grip=ev.target.closest('[data-action="reorder-point"]');
-    if(!grip||ev.button!==0)return;
-    ev.preventDefault();grip.focus({preventScroll:true});
-    const point=points.find(p=>p.id===Number(grip.closest('.point-card').dataset.pointId));
-    reorder={point,pointerId:ev.pointerId,y:ev.clientY,startY:ev.clientY,index:points.indexOf(point),collapsed:point.collapsed,started:false};
-    $('pointList').setPointerCapture(ev.pointerId);
-  });
-  document.addEventListener('pointermove',ev=>{
-    if(!reorder||ev.pointerId!==reorder.pointerId)return;
-    ev.preventDefault();reorder.y=ev.clientY;
-    if(!reorder.started&&Math.abs(ev.clientY-reorder.startY)>4) {
-      reorder.started=true;setPointExpanded(reorder.point,false);
-      pointCard(reorder.point).classList.add('reordering');reorderFrame();
-    }
-  });
-  document.addEventListener('pointerup',ev=>{if(reorder?.pointerId===ev.pointerId)finishReorder();});
-  document.addEventListener('pointercancel',ev=>{if(reorder?.pointerId===ev.pointerId)finishReorder(true);});
-  $('pointList').addEventListener('keydown',ev=>{
-    const grip=ev.target.closest('[data-action="reorder-point"]');
-    if(!grip||!['ArrowUp','ArrowDown'].includes(ev.key))return;
-    ev.preventDefault();
-    const point=points.find(p=>p.id===Number(grip.closest('.point-card').dataset.pointId));
-    movePointTo(point,points.indexOf(point)+(ev.key==='ArrowUp'?-1:1));
-    grip.focus({preventScroll:true});grip.scrollIntoView({block:'nearest'});draw();
-  });
-  function setSidebarOpen(open) {
-    document.querySelector('.app').classList.toggle('settings-closed',!open);
-    $('toggleSettings').setAttribute('aria-expanded',String(open));
-    const label=open?'Приховати меню':'Відкрити меню';
-    $('toggleSettings').setAttribute('aria-label',label);$('toggleSettings').title=label;
-  }
-  $('toggleSettings').onclick=()=>setSidebarOpen($('toggleSettings').getAttribute('aria-expanded')!=='true');
-  document.addEventListener('keydown',ev=>{if(ev.key==='Escape'){finishReorder(true);setMode('center');}});
-  window.addEventListener('blur',()=>finishReorder(true));
-  $('print').onclick=()=>{map.invalidateSize();setTimeout(()=>window.print(),80);};
-  window.addEventListener('afterprint',()=>map.invalidateSize());
-  function collectProject(){
-    return {format:'cartographic-zones-v3',title:$('cardTitle').value,
-      points:points.map(({id,...point})=>({...point,zones:point.zones.map(({id,...z})=>z),landmarks:point.landmarks.map(({id,...landmark})=>landmark)})),
-      selectedPoint:points.indexOf(center),view:{lat:map.getCenter().lat,lng:map.getCenter().lng,zoom:map.getZoom()}};
-  }
-  function download(name,content,mime){
-    const blob=new Blob([content],{type:mime}),url=URL.createObjectURL(blob),a=document.createElement('a');
-    a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
-  }
-  $('exportJSON').onclick=()=>download('kartohrafichni-zony.json',JSON.stringify(collectProject(),null,2),'application/json;charset=utf-8');
-  $('exportPoints').onclick=()=>{
-    const rows=['number,name,latitude,longitude',...points.map((p,i)=>{
-      // Keep imported names as text when opened in a spreadsheet.
-      const name=pointName(p).replace(/^(\s*[=+@-])/,"'$1").replaceAll('"','""');
-      return `${i+1},"${name}",${p.lat},${p.lng}`;
-    })];
-    download('tochky.csv','\uFEFF'+rows.join('\r\n'),'text/csv;charset=utf-8');
-  };
-  $('exportGeoJSON').onclick=()=>{
-    if(!center){alert('Спочатку виберіть центральну точку.');return;}
-    const features=[];
-    points.forEach((point,index)=>{
-      const s=point.settings;
-      features.push({type:'Feature',properties:{type:'center',point:index+1,name:pointName(point),visible:point.visible,title:$('cardTitle').value},geometry:{type:'Point',coordinates:[point.lng,point.lat]}});
-      for(let i=1;i<=s.count;i++)features.push({type:'Feature',properties:{type:'distance_ring',point:index+1,radius_m:i*s.step,stroke:s.color},geometry:{type:'LineString',coordinates:ringPoints(point,i*s.step).map(p=>[p[1],p[0]])}});
-      for(const z of point.zones){const pts=zonePolygon(point,z).map(p=>[p[1],p[0]]);if(pts.length)pts.push(pts[0]);features.push({type:'Feature',properties:{type:'restricted_zone',point:index+1,start_deg:z.start,end_deg:z.end,inner_radius_m:z.inner,outer_radius_m:z.outer,fill:z.color},geometry:{type:'Polygon',coordinates:[pts]}});}
-      for(const landmark of point.landmarks)features.push({type:'Feature',properties:{type:'landmark',point:index+1,name:landmarkName(landmark),distance_m:map.distance(point,landmark),azimuth_deg:azimuth(point,landmark)},geometry:{type:'Point',coordinates:[landmark.lng,landmark.lat]}});
-    });
-    download('kartohrafichni-zony.geojson',JSON.stringify({type:'FeatureCollection',features},null,2),'application/geo+json;charset=utf-8');
-  };
-  $('importJSON').onclick=()=>$('filePicker').click();
-  $('filePicker').onchange=async e=>{
-    const file=e.target.files?.[0];if(!file)return;
-    try {
-      const data=JSON.parse(await file.text());
-      if(!data||!['cartographic-zones-v1','cartographic-zones-v2','cartographic-zones-v3'].includes(data.format))throw Error('Невідомий формат проєкту');
-      const legacy=data.format!=='cartographic-zones-v3';
-      if(legacy&&(!data.settings||typeof data.settings!=='object'))throw Error('Некоректні налаштування');
-      const imported=data.format==='cartographic-zones-v1'?(data.center?[{...data.center,zones:data.zones}]:[]):data.points;
-      if(!Array.isArray(imported)||imported.some(p=>!p||!validCoords(p.lat,p.lng)||!Array.isArray(p.zones)||p.zones.some(z=>!z||typeof z!=='object')||(!legacy&&(!p.settings||typeof p.settings!=='object'))||
-        (p.landmarks!==undefined&&(!Array.isArray(p.landmarks)||p.landmarks.some(l=>!l||!validCoords(l.lat,l.lng))))))throw Error('Некоректні точки, сектори або орієнтири');
-      let nextZoneId=1,nextLandmarkId=1;
-      const importedPoints=imported.map((p,i)=>({id:i+1,name:String(p.name||'Точка '+(i+1)).slice(0,80),lat:p.lat,lng:p.lng,settings:normalizeSettings(legacy?data.settings:p.settings),collapsed:p.collapsed===true,visible:p.visible!==false,
-        landmarks:(p.landmarks||[]).map((l,index)=>({id:nextLandmarkId++,name:String(l.name||'Орієнтир '+(index+1)).slice(0,80),lat:l.lat,lng:l.lng})),zones:p.zones.map(z=>{
-        const outer=valid(f64(z.outer),1,1000000,500);
-        return {id:nextZoneId++,start:valid(f64(z.start),0,359.99,30),end:valid(f64(z.end),0,360,90),inner:valid(f64(z.inner),0,outer-1,0),outer,color:/^#[0-9a-f]{6}$/i.test(z.color)?z.color:'#b94a56',opacity:valid(f64(z.opacity),0,1,.2)};
-      })}));
-      $('cardTitle').value=String(data.title||'Картка відстаней та обмежених зон').slice(0,90);
-      finishReorder(true);
-      setMode('center');
-      points=importedPoints;pointId=points.length+1;zoneId=nextZoneId;landmarkId=nextLandmarkId;
-      $('pointList').replaceChildren();points.forEach(appendPointEditor);
-      $('emptyPoints').hidden=points.length>0;$('pointCount').textContent=points.length;
-      selectPoint((Number.isInteger(data.selectedPoint)?points[data.selectedPoint]:null)||points[0]||null,false);
-      if(data.view && validCoords(data.view.lat,data.view.lng) && Number.isFinite(data.view.zoom))map.setView([data.view.lat,data.view.lng],clamp(data.view.zoom,1,19),{animate:false});else fitMap();
-    } catch(err){ alert('Не вдалося відкрити проєкт: '+err.message); }
-    e.target.value='';
-  };
-  map.getContainer().style.cursor='crosshair';
-  selectPoint(null);
-  new ResizeObserver(()=>map.invalidateSize({animate:false})).observe($('map'));
-})();
-</script>
+<script src="app.js"></script>
 </body>
 </html>

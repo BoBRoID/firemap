@@ -1,68 +1,127 @@
-# Existing editor design
+# Sidebar editor design
 
-Preserve the existing Ukrainian, light, blue-and-white Leaflet editor. This is
-a point-list editor using the existing palette and controls. No new framework
-or dependencies.
+Preserve the existing Ukrainian, light, blue-and-white Leaflet editor. The
+redesign makes the sidebar denser and moves secondary settings into one native
+dialog. No framework, icon package, font download, or new dependency is added.
 
-## Layout
+## Tokens
 
-The app occupies 100dvh. The desktop sidebar is 380px wide. Only `.scroll`
-scrolls; its flex ancestors and itself must have min-height: 0. The brand and
-status stay fixed. The map fills the remaining width and full viewport height.
-On narrow screens a left overlay is at most 356px wide and leaves at least 48px
-of map visible. The sidebar still has full viewport height and its own scroll.
-The chevron toggle lives in the top brand block while open. While closed, it
-becomes a small tab flush with the left viewport edge. Map zoom controls live
-at the top right, away from this tab. Document scrolling is disabled.
-Printing hides settings and uses the whole page for the map.
-There is no title card overlay on the map; the title remains project metadata.
+All UI colors are declared as CSS custom properties in `styles.css`. The
+existing palette remains the source of truth:
 
-## Existing tokens and primitives
+- Ink `#1d2b42`, muted ink `#52637a`, white panel `#ffffff`.
+- Canvas `#edf1f6`, control surface `#f4f7fb`, selected wash `#e4eeff`.
+- Primary blue `#3268ce`, hover blue `#295bb9`.
+- Neutral borders `#dce4ef` and `#e8edf5`; danger ink `#a63146`.
+- Spacing follows a 4px scale from 4px through 32px.
+- Compact desktop controls are 32px high; standard buttons are 36px. Narrow
+  layouts use 40px controls, with the tightest header rows never below 36px.
+  Point headers have no extra vertical padding, so their desktop row is 32px.
+- Radii use 6px, 8px, 10px, and 12px roles. Shadows retain a cool navy tint.
+- The UI font remains the existing system sans stack with Inter as a local
+  fallback. Labels are 11–12px, control text 12–13px, and the card title 16px.
 
-- System sans with Inter fallback; body ink #1d2b42; white panel.
-- Primary action #3268ce, secondary action #f4f7fb, border #dce4ef.
-- Labels 12px, inputs 13px, headings 16px; existing spacing is retained.
-- `.field`, `.cols2`, `.btn`, `.section`, `.distance-label` are shared primitives.
-- Point cards use neutral borders and a tonal selected header. Each header has
-  a collapse chevron, an editable name, a crosshair fit button and a delete icon.
-- A grip reorders points using pointer dragging (including touch), with edge
-  autoscroll. A focused grip also supports Arrow Up/Down. Order is preserved in
-  the project, CSV and GeoJSON.
-- An eye toggles the entire point's map visibility, independently of collapse.
-  Hidden points retain settings, sectors and landmarks. Centering or map
-  placement explicitly reveals that point. Visibility is saved in the project.
-- Point bodies contain a coordinate form, independent ring settings and a list
-  of sector editors. Each sector has its own fields and delete button. A plus
-  adds a sector below that point, and the pencil retains two-click map drawing.
-- Landmarks have their own list below the sectors. A plus enters map placement
-  mode within the point's outer ring. Each landmark has an editable name and a
-  delete icon. Its map label and list row show its name, distance and azimuth.
-- Only the selected center is draggable. Its coordinates, rings, sectors and
-  landmark readings update while dragging; landmark coordinates stay fixed.
-- Collapsing a point hides its whole body, including sectors, without deleting
-  or hiding its map geometry. Map clicks expand the selected point.
-- Inputs retain visible blue focus borders and rings. Buttons retain hover states.
-- Selected centers use a filled blue dot and white border, not an edge stripe.
-- Distance labels retain the existing white surface, shadow, radius and bold text;
-  horizontal and vertical padding become user settings. Labels stay centered on
-  their geographical anchor regardless of padding.
+## Layout and scroll ownership
 
-## Behavior and accessibility
+The app occupies `100dvh`; document scrolling is disabled. On desktop the shell
+is a two-column grid with a 380px sidebar and a fluid map. The sidebar is a
+three-row shell: fixed title header, the only vertical scroll owner `.scroll`,
+and a fixed import footer. Its grid and flex descendants retain `min-height: 0`
+and `min-width: 0` where content must shrink.
 
-All added controls have explicit labels. Settings and point toggles expose their
-expanded state and controlled region. Point headers work with the keyboard.
-Editable names are inserted as text or input values, never HTML.
-Existing map pan and zoom remain available; scrolling settings does not move it.
-No new motion. Themes remain as originally implemented: light only.
+The collapse and save controls are tabs outside the sidebar on the map edge.
+When the sidebar closes, both tabs move to the left viewport edge. The sidebar
+slides left with `transform`, while the desktop grid column contracts so the map
+can use the released width. The map remains responsible for its own redraw;
+JavaScript toggles `.settings-closed`, sets `side.inert`, and invalidates Leaflet
+through the map `ResizeObserver`.
 
-## Accepted scope
+At 760px and below the map fills the viewport and the sidebar becomes a left
+overlay no wider than 356px, always leaving 96px for the two adjacent outside
+tabs. The
+outside tabs remain reachable and do not overlap Leaflet's top-right zoom
+control; the zoom stack moves below the tab row on narrow layouts. The save
+menu anchors to the viewport's right inset at this width so its 196px panel
+cannot overflow. Printing hides the sidebar, tabs, save menu, mode badge, and
+map zoom.
 
-Preserve geometry, printing and exports. Project v3 stores names, individual
-settings, landmarks, visibility and collapse state. V1/v2 and older v3 files
-without landmarks or visibility import with empty landmarks and visible points.
-CSV includes names
-with proper quoting. The former map-wide fit button is removed; each point has
-its own fit action, with 50px map padding around rings, sectors and landmarks.
-On narrow screens fitting hides the overlay so it does not obscure the point.
-Deleting a point removes its sectors and landmarks too. The existing
-scroll-body shell remains the layout.
+## Sidebar anatomy
+
+The header shows the project title as `#cardTitleText`. The bound
+`#cardTitle` input starts hidden and is revealed only for inline title editing.
+The point-list heading contains the count, a global visibility control, and a
+global settings gear.
+
+Point cards are keyboard-focusable list items. Their compact header contains a
+truncated plain-text name, inline name editor, visibility control, center
+control, and the collapse chevron as the final action. Deleting a point is a
+full-width danger button at the end of the card body, separated from routine
+header actions.
+Collapsed cards reserve touch gestures for reordering; expanded cards retain
+normal panel scrolling. Buttons and inputs never initiate a reorder.
+
+Coordinates are normally one compact text button. Editing reveals the labelled
+latitude/longitude form. The main ring row exposes only maximum distance and
+step; visual ring properties live behind its gear. Sector rows expose only start
+and end angles, plus settings and delete controls. Landmark rows expose only a
+name, edit control, and delete control. Long point and landmark names truncate
+with an ellipsis instead of widening the sidebar.
+
+The footer contains only the visible project-import action. Save and export
+actions live in `#saveMenu`, opened from the adjacent outside save tab.
+
+## Settings dialog and inheritance
+
+One native modal `#settingsDialog` serves every gear. JavaScript supplies the
+heading, scope text, and generated `.field` / `.cols2` controls inside
+`#settingsFields`. Native `showModal()` provides focus containment; the explicit
+close button and Escape provide dismissal.
+
+Settings use the narrowest applicable scope:
+
+1. Global settings define defaults for newly created points and items.
+2. Point-level ring, sector-default, and landmark-default gears inherit the
+   current global values, then store overrides for that point.
+3. A sector or landmark gear inherits its point defaults, then stores overrides
+   for that item.
+4. Reset removes the current scope's overrides and immediately reveals the
+   inherited values. Save commits the generated fields for the active scope.
+
+This inheritance changes settings data only; it does not change coordinates,
+visibility, collapse state, names, or existing geometry ownership.
+
+## Motion and state
+
+Panel and outside-tab movement uses a 220ms standard easing. Button feedback and
+surface-color changes use 140ms. Spatial sidebar movement is transform-based;
+the desktop grid column transitions in parallel so the map expands without a
+hard jump. Input remains available throughout the transition.
+
+Under `prefers-reduced-motion: reduce`, transitions collapse to an effectively
+instant state change. No decorative animation, loop, blur animation, or motion
+unrelated to an interaction is introduced.
+
+Selected point headers use the existing blue tonal wash, never a colored edge.
+All controls have hover, pressed, and visible keyboard-focus states. Icon-only
+buttons have accessible names and native title hints. Inputs retain visible
+labels, except angle labels that are visually hidden but remain bound and
+announced with degree units.
+
+## Empty states and copy
+
+The only instructional prose in the sidebar is the empty point-list message and
+the no-sectors message. Other guidance belongs in control labels, titles, dialog
+scope text, or dynamic validation.
+
+## JavaScript contract
+
+Markup retains `pointTemplate`, `zoneTemplate`, `landmarkTemplate`, `pointList`,
+`emptyPoints`, `pointCount`, `toggleSettings`, `settingsPanel`, `map`,
+`modeBadge`, `filePicker`, `importJSON`, `exportJSON`, `exportPoints`,
+`exportGeoJSON`, and `print`.
+
+The redesigned templates intentionally require the paired JavaScript
+implementation to populate plain-text names, coordinate summaries, generated
+settings fields, save-menu state, title edit state, visibility state, and
+settings inheritance. JavaScript must use text/value assignment rather than
+HTML insertion for user-provided names.
