@@ -56,16 +56,19 @@ The header shows the project title as `#cardTitleText`. The bound
 The point-list heading contains the count, a global visibility control, and a
 global settings gear.
 
-Point cards are keyboard-focusable list items. Their compact header contains a
-truncated plain-text name, inline name editor, visibility control, center
-control, and the collapse chevron as the final action. Deleting a point is a
+Point cards are keyboard-focusable list items. Their compact header contains the
+collapse chevron, truncated name with its adjacent pencil/confirmation action,
+center control, and visibility control. The inline editor is a transparent,
+underlined row, not a boxed field. Header actions have no added gaps.
+Deleting a point is a
 full-width danger button at the end of the card body, separated from routine
 header actions.
 Collapsed cards reserve touch gestures for reordering; expanded cards retain
 normal panel scrolling. Buttons and inputs never initiate a reorder.
 
-Coordinates are normally one compact text button. Editing reveals the labelled
-latitude/longitude form. The main ring row exposes only maximum distance and
+Coordinates are normally one compact text button. Editing opens the labelled
+latitude/longitude form in a native popover beside the sidebar; Apply commits,
+and Escape or outside click cancels. The main ring row exposes only maximum distance and
 step; visual ring properties live behind its gear. Sector rows expose only start
 and end angles, plus settings and delete controls. Landmark rows expose only a
 name, edit control, and delete control. Long point and landmark names truncate
@@ -76,10 +79,25 @@ actions live in `#saveMenu`, opened from the adjacent outside save tab.
 
 ## Settings dialog and inheritance
 
-One native modal `#settingsDialog` serves every gear. JavaScript supplies the
+The global native modal `#settingsDialog` is up to 760px wide. Each category has
+two compact field groups: ring appearance and label text, sector geometry and
+hatching, landmark typography and caption placement. Numeric inputs are 96px
+wide and color swatches are 48px wide; labels share the row with their input.
+Category groups stack at narrow widths. Card bodies use 8px padding and section
+separation, with 4px between headings and content.
+
+The same dialog is modeless for local settings, positioned 8px to the right of
+the sidebar at the trigger height and clamped within the viewport. These
+interactive panels use dialog semantics, not the noninteractive tooltip role.
+Local panels are up to 360px wide, scroll internally, and fall back to an
+8px viewport inset when the right side has insufficient space. Only the global
+dialog has a backdrop or traps focus. Escape, outside click, and close dismiss
+local panels; Save commits their fields. JavaScript supplies the
 heading, scope text, and generated `.field` / `.cols2` controls inside
 `#settingsFields`. Native `showModal()` provides focus containment; the explicit
-close button and Escape provide dismissal.
+close button and Escape provide dismissal. The external radius of every sector,
+including the drawing preview and export geometry, follows its point's maximum
+ring distance. It is read-only in local settings and not a global style field.
 
 Settings use the narrowest applicable scope:
 

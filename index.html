@@ -232,12 +232,11 @@ svg { display: block; }
 }
 
 .point-head {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) repeat(4, var(--control-compact));
-  gap: var(--space-1);
+  display: flex;
+  gap: 0;
   align-items: center;
   min-height: var(--control-compact);
-  padding: 0 var(--space-2);
+  padding: 0 var(--space-1);
   background: var(--surface-control);
 }
 
@@ -256,16 +255,31 @@ svg { display: block; }
   white-space: nowrap;
 }
 
-.point-name:not([hidden]) { min-width: 0; height: var(--control-compact); }
+.point-title { display: flex; align-items: center; flex: 1; min-width: 0; }
+.point-title .point-name-text { flex: 0 1 auto; }
+.point-head > .icon-btn, .point-title > .icon-btn { flex: 0 0 auto; }
+.point-head input.point-name {
+  flex: 1;
+  width: 0;
+  height: var(--control-compact);
+  padding: 0 var(--space-1);
+  border: 0;
+  border-bottom: 1px solid var(--accent);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.name-confirm { display: none; }
+.editing-name .name-pencil { display: none; }
+.editing-name .name-confirm { display: block; }
 
-.point-toggle { order: 5; }
 .point-toggle[aria-expanded="true"] svg { transform: rotate(90deg); }
 
-.point-body { padding: var(--space-3); }
+.point-body { padding: var(--space-2); }
 
 .section {
-  margin-bottom: var(--space-3);
-  padding-bottom: var(--space-3);
+  margin-bottom: var(--space-2);
+  padding-bottom: var(--space-2);
   border-bottom: 1px solid var(--border-soft);
 }
 
@@ -273,10 +287,12 @@ svg { display: block; }
   min-height: var(--control-compact);
   justify-content: space-between;
   gap: var(--space-2);
-  margin-bottom: var(--space-2);
+  margin-bottom: var(--space-1);
 }
 
 .section-heading strong { min-width: 0; font-size: var(--text-sm); }
+.coordinate-section .section-heading { margin-bottom: 0; }
+.section > .cols2:last-child { margin-bottom: 0; }
 
 .coordinate-text {
   min-width: 0;
@@ -406,7 +422,7 @@ summary:focus-visible {
 
 .no-zones {
   margin: 0;
-  padding: var(--space-2);
+  padding: var(--space-1);
   color: var(--ink-soft);
   font-size: var(--text-xs);
   text-align: center;
@@ -511,7 +527,7 @@ summary:focus-visible {
 .landmark-caption small { display: block; margin-top: 2px; color: var(--ink-muted); font-size: var(--text-xs); white-space: nowrap; }
 
 dialog {
-  width: min(440px, calc(100vw - var(--space-8)));
+  width: min(760px, calc(100vw - var(--space-8)));
   max-height: calc(100dvh - var(--space-8));
   padding: 0;
   overflow: auto;
@@ -528,14 +544,46 @@ dialog::backdrop { background: var(--shadow-landmark); }
 .dialog-header h2 { margin: 0; color: var(--ink-strong); font-size: var(--text-lg); line-height: 1.25; }
 #settingsScope { margin: var(--space-1) 0 0; color: var(--ink-soft); font-size: var(--text-sm); }
 #settingsFields { display: grid; gap: var(--space-3); }
+.settings-category { min-width: 0; padding: var(--space-3); border: 1px solid var(--border-soft); border-radius: var(--radius-md); background: var(--surface-subtle); }
+.settings-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }
+.settings-subgroup { min-width: 0; display: grid; align-content: start; gap: var(--space-2); }
+.settings-subgroup h4 { margin: 0; font-size: var(--text-xs); color: var(--ink-soft); font-weight: var(--weight-medium); }
+.settings-note { margin: 0; color: var(--ink-soft); font-size: var(--text-xs); line-height: 1.5; }
+#settingsFields .field { display: grid; grid-template-columns: minmax(0, 1fr) 96px; align-items: center; gap: var(--space-2); }
+#settingsFields input[type="color"] { width: 48px; height: var(--control-compact); justify-self: end; }
+#settingsFields input[readonly] { background: var(--surface-control); color: var(--ink-soft); }
+#settingsFields .settings-name { grid-template-columns: 1fr; }
 .settings-group-title {
-  margin: var(--space-1) 0 0;
+  margin: 0 0 var(--space-3);
   color: var(--ink-strong);
   font-size: var(--text-sm);
   line-height: 1.35;
 }
 .dialog-actions { justify-content: flex-end; gap: var(--space-2); margin-top: var(--space-5); }
 .dialog-actions .btn { width: auto; min-width: 104px; }
+.settings-popover, .coordinate-popover {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  width: min(360px, calc(100vw - var(--space-4)));
+  max-height: calc(100dvh - var(--space-4));
+  overflow: auto;
+  z-index: calc(var(--layer-menu) + 1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-panel);
+  color: var(--ink);
+  box-shadow: 0 8px 24px var(--shadow-control);
+}
+.settings-popover #settingsForm { padding: var(--space-3); }
+.settings-popover .settings-group-title { display: none; }
+.settings-popover .settings-columns { grid-template-columns: minmax(0, 1fr); gap: var(--space-3); }
+.settings-popover .dialog-header { margin-bottom: var(--space-3); }
+.settings-popover .dialog-actions { flex-wrap: wrap; margin-top: var(--space-3); }
+.settings-popover .dialog-actions .btn { min-width: 0; }
+.coordinate-popover { padding: var(--space-3); }
+.coordinate-popover h3 { margin: 0; font-size: var(--text-sm); }
+.coordinate-popover .btn { width: auto; }
 
 @media (max-width: 760px) {
   :root {
@@ -550,7 +598,6 @@ dialog::backdrop { background: var(--shadow-landmark); }
   .map-wrap { position: absolute; inset: 0; }
   .side { position: absolute; inset: 0 auto 0 0; height: 100dvh; }
   .sidebar-header, .scroll, .sidebar-footer { padding-right: var(--space-3); padding-left: var(--space-3); }
-  .point-head { grid-template-columns: minmax(0, 1fr) repeat(4, var(--control-touch)); }
   .icon-btn { width: var(--control-touch); height: var(--control-touch); }
   .btn-compact { min-height: var(--control-touch); }
   .zone-card { grid-template-columns: repeat(2, minmax(0, 1fr)) var(--control-touch) var(--control-touch); }
@@ -563,13 +610,17 @@ dialog::backdrop { background: var(--shadow-landmark); }
 }
 
 @media (max-width: 420px) {
-  .point-head { grid-template-columns: minmax(0, 1fr) repeat(4, 36px); }
   .point-head .icon-btn { width: 36px; height: 36px; }
   .section-actions { gap: 0; }
   .section-actions .icon-btn { width: 36px; height: 36px; }
   .btn-compact { min-height: 36px; }
   .zone-card { grid-template-columns: repeat(2, minmax(0, 1fr)) 36px 36px; }
   .zone-card .icon-btn { width: 36px; height: 36px; }
+}
+
+@media (max-width: 600px) {
+  .settings-columns { grid-template-columns: minmax(0, 1fr); gap: var(--space-3); }
+  .settings-category { padding: var(--space-2); }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -588,7 +639,7 @@ dialog::backdrop { background: var(--shadow-landmark); }
 @media print {
   html, body, .app { height: 100%; min-height: 0; margin: 0; padding: 0; background: var(--surface-panel); }
   .app { display: block; }
-  .side, .badge-mode, .leaflet-control-zoom, .edge-tab, .save-menu { display: none !important; }
+  .side, .badge-mode, .leaflet-control-zoom, .edge-tab, .save-menu, dialog, [popover] { display: none !important; }
   .map-wrap { position: relative; inset: auto; width: 100%; height: 100%; }
   .map-header { top: var(--space-2); right: auto; left: var(--space-2); padding-right: 0; }
   #map { width: 100%; height: 100%; }
@@ -659,20 +710,23 @@ dialog::backdrop { background: var(--shadow-landmark); }
 <template id="pointTemplate">
   <li class="point-card" tabindex="0">
     <div class="point-head">
-      <span class="point-name-text"></span>
-      <label class="sr-only" for="name">Назва точки</label>
-      <input class="point-name" id="name" data-field="name" type="text" maxlength="80" hidden />
-      <button class="icon-btn" data-action="edit-name" type="button" aria-label="Редагувати назву точки" title="Редагувати назву точки">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m16 3 5 5L8 21H3v-5Z"/><path d="m14 5 5 5"/></svg>
+      <button class="icon-btn point-toggle" data-action="toggle-point" type="button" aria-expanded="true" aria-label="Згорнути налаштування точки" title="Згорнути налаштування точки">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
       </button>
-      <button class="icon-btn" data-action="toggle-visibility" type="button" aria-pressed="true" aria-label="Приховати точку на карті" title="Приховати точку на карті">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/><path data-eye-slash class="hidden" d="m3 3 18 18"/></svg>
-      </button>
+      <div class="point-title">
+        <span class="point-name-text"></span>
+        <label class="sr-only" for="name">Назва точки</label>
+        <input class="point-name" id="name" data-field="name" type="text" maxlength="80" hidden />
+        <button class="icon-btn" data-action="edit-name" type="button" aria-label="Редагувати назву точки" title="Редагувати назву точки">
+          <svg class="name-pencil" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m16 3 5 5L8 21H3v-5Z"/><path d="m14 5 5 5"/></svg>
+          <svg class="name-confirm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>
+        </button>
+      </div>
       <button class="icon-btn" data-action="center-point" type="button" aria-label="Центрувати на точці" title="Центрувати на точці">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/><path d="M12 1v5m0 12v5M1 12h5m12 0h5"/></svg>
       </button>
-      <button class="icon-btn point-toggle" data-action="toggle-point" type="button" aria-expanded="true" aria-label="Згорнути налаштування точки" title="Згорнути налаштування точки">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
+      <button class="icon-btn" data-action="toggle-visibility" type="button" aria-pressed="true" aria-label="Приховати точку на карті" title="Приховати точку на карті">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/><path data-eye-slash class="hidden" d="m3 3 18 18"/></svg>
       </button>
     </div>
 
@@ -682,7 +736,8 @@ dialog::backdrop { background: var(--shadow-landmark); }
           <strong>Координати</strong>
           <button class="coordinate-text" data-action="edit-coordinates" type="button"></button>
         </div>
-        <form data-action="coordinates" hidden>
+        <form class="coordinate-popover" data-action="coordinates" popover aria-label="Редагувати координати">
+          <div class="dialog-header"><h3>Координати точки</h3></div>
           <div class="cols2">
             <div class="field"><label for="lat">Широта</label><input type="number" id="lat" data-field="lat" min="-85" max="85" step="any" required /></div>
             <div class="field"><label for="lng">Довгота</label><input type="number" id="lng" data-field="lng" min="-180" max="180" step="any" required /></div>
@@ -711,7 +766,6 @@ dialog::backdrop { background: var(--shadow-landmark); }
             <button class="icon-btn settings-gear" data-action="sector-settings" type="button" aria-label="Типові налаштування секторів" title="Типові налаштування секторів">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3A1.7 1.7 0 0 0 10 3v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z"/></svg>
             </button>
-            <button class="btn btn-compact" data-action="add-zone" type="button">+ Сектор</button>
             <button class="icon-btn" data-action="draw-zone" type="button" aria-label="Позначити сектор двома кліками" title="Позначити сектор двома кліками">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m16 3 5 5-12 12-6 1 1-6Z M13 6l5 5"/></svg>
             </button>
@@ -728,7 +782,9 @@ dialog::backdrop { background: var(--shadow-landmark); }
             <button class="icon-btn settings-gear" data-action="landmark-settings" type="button" aria-label="Налаштування орієнтирів" title="Налаштування орієнтирів">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3A1.7 1.7 0 0 0 10 3v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z"/></svg>
             </button>
-            <button class="btn btn-compact" data-action="add-landmark" type="button">+ Орієнтир</button>
+            <button class="icon-btn" data-action="add-landmark" type="button" aria-label="Додати орієнтир" title="Додати орієнтир">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+            </button>
           </div>
         </div>
         <ol class="landmark-list" aria-label="Орієнтири точки"></ol>
@@ -901,7 +957,7 @@ dialog::backdrop { background: var(--shadow-landmark); }
   }
   let globalSettings={rings:normalizeSettings(),sectors:normalizeSector(),landmarks:normalizeLandmark()};
   const ringSettings=point=>normalizeSettings({...globalSettings.rings,...point.settings});
-  const sectorSettings=(point,zone)=>normalizeSector({...globalSettings.sectors,...point.zoneSettings,...zone?.settings});
+  const sectorSettings=(point,zone)=>normalizeSector({...globalSettings.sectors,...point.zoneSettings,...zone?.settings,outer:ringSettings(point).maxDistance});
   const landmarkSettings=(point,landmark)=>normalizeLandmark({...globalSettings.landmarks,...point.landmarkSettings,...landmark?.settings});
   function ringRadii(settings) {
     const count=Math.ceil(settings.maxDistance/settings.step);
@@ -938,6 +994,13 @@ dialog::backdrop { background: var(--shadow-landmark); }
     card.querySelector('[data-field="lng"]').value=point.lng.toFixed(6);
     card.querySelectorAll('[data-setting]').forEach(input=>input.value=ringSettings(point)[input.dataset.setting]);
     card.querySelector('.coordinate-text').textContent=`${point.lat.toFixed(6)}, ${point.lng.toFixed(6)}`;
+    const coordinates=card.querySelector('.coordinate-popover');
+    coordinates.id='coordinates-'+point.id;
+    card.querySelector('.coordinate-text').setAttribute('aria-controls',coordinates.id);
+    card.querySelector('.coordinate-text').setAttribute('aria-expanded','false');
+    coordinates.addEventListener('toggle',ev=>{
+      card.querySelector('.coordinate-text').setAttribute('aria-expanded',String(ev.newState==='open'));
+    });
     const body=card.querySelector('.point-body');body.id='point-body-'+point.id;
     card.querySelector('.point-toggle').setAttribute('aria-controls',body.id);
     $('pointList').appendChild(card);
@@ -963,6 +1026,8 @@ dialog::backdrop { background: var(--shadow-landmark); }
     if(expanded)points.forEach(other=>{if(other!==point&&pointCard(other))setPointExpanded(other,false);});
     point.collapsed=!expanded;
     const card=pointCard(point),toggle=card.querySelector('.point-toggle');
+    if(!expanded&&card.querySelector('.coordinate-popover:popover-open'))card.querySelector('.coordinate-popover').hidePopover();
+    if(!expanded&&settingsEditor?.point===point&&$('settingsDialog').open)closeSettings();
     card.querySelector('.point-body').hidden=!expanded;
     card.classList.toggle('collapsed',!expanded);
     toggle.setAttribute('aria-expanded',String(expanded));
@@ -1153,7 +1218,7 @@ dialog::backdrop { background: var(--shadow-landmark); }
     const lat=Number(form.querySelector('[data-field="lat"]').value),lng=Number(form.querySelector('[data-field="lng"]').value);
     if(!validCoords(lat,lng))return;
     point.lat=lat;point.lng=lng;updateCoordinates(point);
-    form.hidden=true;pointCard(point).querySelector('.coordinate-text').hidden=false;selectPoint(point,false);
+    form.hidePopover();pointCard(point).querySelector('.coordinate-text').focus();selectPoint(point,false);
   });
   function updateField(ev) {
     const input=ev.target,card=input.closest('.point-card');if(!card)return;
@@ -1177,17 +1242,26 @@ dialog::backdrop { background: var(--shadow-landmark); }
   }
   $('pointList').addEventListener('input',updateField);
   $('pointList').addEventListener('change',updateField);
+  function finishPointName(card) {
+    const input=card.querySelector('[data-field="name"]'),button=card.querySelector('[data-action="edit-name"]');
+    input.hidden=true;card.querySelector('.point-name-text').hidden=false;
+    card.querySelector('.point-title').classList.remove('editing-name');
+    button.title='Редагувати назву точки';button.setAttribute('aria-label',button.title);draw();
+  }
   $('pointList').addEventListener('focusout',ev=>{
     const input=ev.target;
     if(input.dataset.field==='name') {
-      input.hidden=true;input.closest('.point-head').querySelector('.point-name-text').hidden=false;draw();
+      const card=input.closest('.point-card');
+      if(ev.relatedTarget===card.querySelector('[data-action="edit-name"]'))return;
+      finishPointName(card);
     }
-    const form=input.closest('form[data-action="coordinates"]');
-    if(form&&!form.hidden&&!form.contains(ev.relatedTarget))form.requestSubmit();
   });
   $('pointList').addEventListener('keydown',ev=>{
-    if(ev.target.dataset.field==='name'&&ev.key==='Enter'){ev.preventDefault();ev.target.blur();}
-    if(ev.target.dataset.field==='name'&&ev.key==='Escape'){ev.preventDefault();ev.target.blur();}
+    if(ev.target.dataset.field==='name'&&(ev.key==='Enter'||ev.key==='Escape')){
+      ev.preventDefault();
+      const card=ev.target.closest('.point-card');
+      ev.target.blur();card.querySelector('[data-action="edit-name"]').focus();
+    }
   });
   $('pointList').addEventListener('click',ev=>{
     const button=ev.target.closest('button[data-action]');if(!button)return;
@@ -1199,34 +1273,38 @@ dialog::backdrop { background: var(--shadow-landmark); }
         break;
       case 'edit-name': {
         const card=pointCard(point),input=card.querySelector('[data-field="name"]');
+        if(!input.hidden){finishPointName(card);button.focus();break;}
+        card.querySelector('.point-title').classList.add('editing-name');
+        button.title='Підтвердити назву точки';button.setAttribute('aria-label',button.title);
         card.querySelector('.point-name-text').hidden=true;input.hidden=false;input.focus();input.select();break;
       }
       case 'edit-coordinates': {
-        const card=pointCard(point);
-        button.hidden=true;card.querySelector('form[data-action="coordinates"]').hidden=false;
+        const card=pointCard(point),form=card.querySelector('.coordinate-popover');
+        if(form.matches(':popover-open')){form.hidePopover();break;}
+        if($('settingsDialog').open)closeSettings();
+        updateCoordinates(point);form.showPopover();positionPanel(form,button);
         card.querySelector('[data-field="lat"]').focus();break;
       }
-      case 'ring-settings':openSettings('rings',point);break;
-      case 'sector-settings':openSettings('sectors',point);break;
-      case 'landmark-settings':openSettings('landmarks',point);break;
+      case 'ring-settings':openSettings('rings',point,null,button);break;
+      case 'sector-settings':openSettings('sectors',point,null,button);break;
+      case 'landmark-settings':openSettings('landmarks',point,null,button);break;
       case 'zone-settings':
-        openSettings('sectors',point,point.zones.find(z=>z.id===Number(button.closest('.zone-card').dataset.zoneId)));break;
+        openSettings('sectors',point,point.zones.find(z=>z.id===Number(button.closest('.zone-card').dataset.zoneId)),button);break;
       case 'edit-landmark':
-        openSettings('landmarks',point,point.landmarks.find(l=>l.id===Number(button.closest('.landmark-item').dataset.landmarkId)));break;
+        openSettings('landmarks',point,point.landmarks.find(l=>l.id===Number(button.closest('.landmark-item').dataset.landmarkId)),button);break;
       case 'center-point':
         setPointVisible(point,true);selectPoint(point,false);focusPoint(point);break;
       case 'toggle-visibility':
         if(center===point)setMode('center');
         setPointVisible(point,!point.visible);draw();break;
       case 'delete-point': {
+        if(settingsEditor?.point===point&&$('settingsDialog').open)closeSettings();
         setMode('center');
         const index=points.indexOf(point);points.splice(index,1);pointCard(point).remove();
         $('pointCount').textContent=points.length;$('emptyPoints').hidden=points.length>0;
         updateVisibilityButton();
         selectPoint(center===point?(points[index]||points[index-1]||null):center,false);break;
       }
-      case 'add-zone':
-        selectPoint(point,false);addZone(point);break;
       case 'draw-zone':
         if(center===point&&mode!=='center')setMode('center');
         else {setPointVisible(point,true);selectPoint(point);if(matchMedia('(max-width:760px)').matches)focusPoint(point);setMode('start');}
@@ -1306,6 +1384,10 @@ dialog::backdrop { background: var(--shadow-landmark); }
     card.focus({preventScroll:true});card.scrollIntoView({block:'nearest'});draw();
   });
   function setSidebarOpen(open) {
+    if(!open){
+      if($('settingsDialog').open&&settingsEditor?.point)closeSettings();
+      document.querySelectorAll('.coordinate-popover:popover-open').forEach(form=>form.hidePopover());
+    }
     document.querySelector('.app').classList.toggle('settings-closed',!open);
     $('settingsPanel').inert=!open;
     setSaveMenu(false);
@@ -1356,7 +1438,7 @@ dialog::backdrop { background: var(--shadow-landmark); }
       ['paddingX','Відступ по горизонталі, px','number',0,50,1],['paddingY','Відступ по вертикалі, px','number',0,50,1]
     ],
     sectors:[
-      ['inner','Внутрішній радіус, м','number',0,1000000,'any'],['outer','Зовнішній радіус, м','number',1,1000000,'any'],
+      ['inner','Внутрішній радіус, м','number',0,1000000,'any'],
       ['color','Колір штрихування','color'],['opacity','Насиченість','number',0,1,.05]
     ],
     landmarks:[
@@ -1367,11 +1449,28 @@ dialog::backdrop { background: var(--shadow-landmark); }
     ]
   };
   const settingsNames={rings:'Кола відстаней',sectors:'Заштриховані сектори',landmarks:'Орієнтири'};
+  const settingsSections={
+    rings:[['Вигляд кіл',['color','width','size']],['Текст підписів',['labelColor','bearing','paddingX','paddingY']]],
+    sectors:[['Геометрія',['inner','outer']],['Штрихування',['color','opacity']]],
+    landmarks:[['Розміри тексту',['nameSize','distanceSize','angleSize']],['Підказка',['paddingX','paddingY','backgroundOpacity','angle']]]
+  };
   const normalizers={rings:normalizeSettings,sectors:normalizeSector,landmarks:normalizeLandmark};
   let settingsEditor=null;
-  function openSettings(group,point=null,item=null) {
+  function positionPanel(panel,anchor) {
+    const edge=$('settingsPanel').getBoundingClientRect().right;
+    const width=panel.getBoundingClientRect().width;
+    panel.style.left=(edge+8+width<=innerWidth-8?edge+8:Math.max(8,innerWidth-width-8))+'px';
+    panel.style.top=Math.max(8,Math.min(anchor.getBoundingClientRect().top,innerHeight-panel.getBoundingClientRect().height-8))+'px';
+  }
+  function closeSettings() {
+    $('settingsDialog').close();
+    settingsEditor?.anchor?.focus({preventScroll:true});
+  }
+  function openSettings(group,point=null,item=null,anchor=$('globalSettings')) {
+    if($('settingsDialog').open)closeSettings();
+    document.querySelectorAll('.coordinate-popover:popover-open').forEach(form=>form.hidePopover());
     const groups=group?[group]:['rings','sectors','landmarks'];
-    settingsEditor={groups,point,item,initial:{}};
+    settingsEditor={groups,point,item,anchor,initial:{}};
     $('settingsTitle').textContent=point?(item&&group==='landmarks'?'Редагувати орієнтир':settingsNames[group]):'Глобальні налаштування';
     $('settingsScope').textContent=point
       ?`${pointName(point)} · ${item?'Окремі налаштування':'Налаштування точки'}. Незмінені поля успадковуються.`
@@ -1379,42 +1478,65 @@ dialog::backdrop { background: var(--shadow-landmark); }
     $('resetSettings').hidden=!point;
     $('resetSettings').textContent=item?'Використовувати налаштування точки':'Використовувати глобальні';
     $('settingsFields').replaceChildren();
-    function addField(name,label,type,value,min,max,step) {
+    function addField(parent,name,label,type,value,min,max,step) {
       const wrapper=document.createElement('div'),caption=document.createElement('label'),input=document.createElement('input');
-      wrapper.className='field';input.id='settings-'+name.replaceAll('.','-');input.name=name;
+      wrapper.className='field'+(type==='text'?' settings-name':'');input.id='settings-'+name.replaceAll('.','-');input.name=name;
       caption.htmlFor=input.id;caption.textContent=label;input.type=type;input.value=value;input.required=true;
       if(type==='number'){input.min=min;input.max=max;input.step=step;}
       if(type==='text')input.maxLength=80;
-      wrapper.append(caption,input);$('settingsFields').append(wrapper);
+      wrapper.append(caption,input);parent.append(wrapper);
       settingsEditor.initial[name]=String(value);
+      return input;
     }
     if(item&&group==='landmarks'){
-      addField('name','Назва орієнтира','text',item.name);
-      addField('lat','Широта','number',item.lat,-85,85,'any');
-      addField('lng','Довгота','number',item.lng,-180,180,'any');
+      addField($('settingsFields'),'name','Назва орієнтира','text',item.name);
+      addField($('settingsFields'),'lat','Широта','number',item.lat,-85,85,'any');
+      addField($('settingsFields'),'lng','Довгота','number',item.lng,-180,180,'any');
     }
     for(const key of groups){
+      const category=document.createElement('section'),columns=document.createElement('div');
+      category.className='settings-category';columns.className='settings-columns';
       const heading=document.createElement('h3');heading.textContent=settingsNames[key];heading.className='settings-group-title';
-      $('settingsFields').append(heading);
+      category.append(heading,columns);$('settingsFields').append(category);
       const value=!point?globalSettings[key]:key==='rings'?ringSettings(point):key==='sectors'?sectorSettings(point,item):landmarkSettings(point,item);
-      for(const [field,label,type,min,max,step] of settingsFields[key])addField(key+'.'+field,label,type,value[field],min,max,step);
+      for(const [title,fields] of settingsSections[key]){
+        const section=document.createElement('div'),caption=document.createElement('h4');
+        section.className='settings-subgroup';caption.textContent=title;section.append(caption);columns.append(section);
+        for(const field of fields){
+          if(field==='outer'){
+            if(point){
+              const input=addField(section,'sectors.outer','Зовнішній радіус, м','number',value.outer,1,1000000,'any');
+              input.readOnly=true;input.title='Дорівнює максимальній відстані кіл';
+            }else{
+              const note=document.createElement('p');note.className='settings-note';note.textContent='Зовнішній радіус відповідає максимальному колу кожної точки.';section.append(note);
+            }
+            continue;
+          }
+          const [,label,type,min,max,step]=settingsFields[key].find(([name])=>name===field);
+          addField(section,key+'.'+field,label,type,value[field],min,max,step);
+        }
+      }
     }
-    $('settingsDialog').showModal();
+    const dialog=$('settingsDialog');
+    dialog.classList.toggle('settings-popover',!!point);
+    dialog.style.left='';dialog.style.top='';
+    if(point){dialog.show();positionPanel(dialog,anchor);}
+    else dialog.showModal();
   }
   function overrideTarget(group,point,item) {
     if(item)return item.settings;
     return group==='rings'?point.settings:group==='sectors'?point.zoneSettings:point.landmarkSettings;
   }
   $('globalSettings').onclick=()=>openSettings(null);
-  $('closeSettings').onclick=()=>$('settingsDialog').close();
+  $('closeSettings').onclick=closeSettings;
   $('settingsForm').addEventListener('input',ev=>ev.target.setCustomValidity?.(''));
   $('settingsForm').onsubmit=ev=>{
     ev.preventDefault();
     const {groups,point,item,initial}=settingsEditor,form=$('settingsForm');
     if(!form.reportValidity())return;
-    if(groups.includes('sectors')){
-      const inner=form.elements.namedItem('sectors.inner'),outer=form.elements.namedItem('sectors.outer');
-      if(Number(inner.value)>=Number(outer.value)){inner.setCustomValidity('Внутрішній радіус має бути меншим за зовнішній.');inner.reportValidity();return;}
+    if(point&&groups.includes('sectors')){
+      const inner=form.elements.namedItem('sectors.inner');
+      if(Number(inner.value)>=ringSettings(point).maxDistance){inner.setCustomValidity('Внутрішній радіус має бути меншим за зовнішній.');inner.reportValidity();return;}
     }
     for(const group of groups){
       const target=point?overrideTarget(group,point,item):globalSettings[group];
@@ -1428,7 +1550,7 @@ dialog::backdrop { background: var(--shadow-landmark); }
       item.lat=Number(form.elements.namedItem('lat').value);item.lng=Number(form.elements.namedItem('lng').value);
       pointCard(point).querySelector(`[data-landmark-id="${item.id}"] .landmark-name`).textContent=landmarkName(item);
     }
-    $('settingsDialog').close();draw();
+    closeSettings();draw();
   };
   $('resetSettings').onclick=()=>{
     const {groups,point,item}=settingsEditor;
@@ -1436,9 +1558,26 @@ dialog::backdrop { background: var(--shadow-landmark); }
       const target=overrideTarget(group,point,item);
       for(const [key] of settingsFields[group])delete target[key];
     }
-    $('settingsDialog').close();draw();
+    closeSettings();draw();
   };
-  document.addEventListener('keydown',ev=>{if(ev.key==='Escape'){finishReorder(true);setMode('center');setSaveMenu(false);}});
+  document.addEventListener('pointerdown',ev=>{
+    if($('settingsDialog').open&&settingsEditor?.point&&!$('settingsDialog').contains(ev.target)&&!settingsEditor.anchor.contains(ev.target))closeSettings();
+  });
+  window.addEventListener('resize',()=>{
+    if($('settingsDialog').open&&settingsEditor?.point)positionPanel($('settingsDialog'),settingsEditor.anchor);
+    document.querySelectorAll('.coordinate-popover:popover-open').forEach(form=>positionPanel(form,form.closest('.point-card').querySelector('.coordinate-text')));
+  });
+  document.querySelector('.scroll').addEventListener('scroll',()=>{
+    if($('settingsDialog').open&&settingsEditor?.point)closeSettings();
+    document.querySelectorAll('.coordinate-popover:popover-open').forEach(form=>form.hidePopover());
+  });
+  document.addEventListener('keydown',ev=>{
+    if(ev.key!=='Escape')return;
+    const coordinates=document.querySelector('.coordinate-popover:popover-open');
+    if(coordinates){ev.preventDefault();coordinates.hidePopover();coordinates.closest('.point-card').querySelector('.coordinate-text').focus();}
+    if($('settingsDialog').open){ev.preventDefault();closeSettings();}
+    finishReorder(true);setMode('center');setSaveMenu(false);
+  });
   window.addEventListener('blur',()=>finishReorder(true));
   $('print').onclick=()=>{map.invalidateSize();setTimeout(()=>window.print(),80);};
   window.addEventListener('afterprint',()=>map.invalidateSize());

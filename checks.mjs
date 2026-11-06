@@ -16,17 +16,36 @@ export async function checkEditor(view) {
       if ($('settingsPanel').inert) $('toggleSettings').click();
       card.querySelector(`[data-action="${name}"]`).click();
     };
-    const rename = (card, value) => {
+    const rename = (card, value, confirm = 'blur') => {
+      const pencil = card.querySelector('[data-action="edit-name"]');
+      const label = pencil.getAttribute('aria-label');
       action(card, 'edit-name');
       check(!field(card, 'name').hidden && card.querySelector('.point-name-text').hidden, 'Pencil must reveal the point name input');
+      check(pencil.getAttribute('aria-label') === 'Підтвердити назву точки', 'Editing a name must turn its pencil into a confirm button');
       input(field(card, 'name'), value);
-      field(card, 'name').blur();
-      check(field(card, 'name').hidden && card.querySelector('.point-name-text').textContent === value, 'Blur must restore the point name text');
+      if (confirm === 'click') pencil.click();
+      else if (confirm === 'Enter') field(card, 'name').dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter', bubbles: true, cancelable: true}));
+      else field(card, 'name').blur();
+      check(field(card, 'name').hidden && card.querySelector('.point-name-text').textContent === value, `${confirm} must confirm and restore the point name text`);
+      check(pencil.getAttribute('aria-label') === label, 'Confirming a name must restore the pencil action');
+      if (confirm === 'Enter') check(document.activeElement === pencil, 'Keyboard name confirmation must return focus to the pencil');
     };
     const setting = name => $('settingsForm').elements.namedItem(name);
     const openSettings = (card, name) => {
       if (card) action(card, name); else $('globalSettings').click();
       check($('settingsDialog') instanceof HTMLDialogElement && $('settingsDialog').open, 'Settings must open a native dialog');
+      check($('settingsDialog').matches(':modal') === !card &&
+        $('settingsDialog').classList.contains('settings-popover') === !!card,
+        'Local settings must use a modeless settings-popover dialog; global settings must remain modal');
+      if (card && setting('sectors.outer')) {
+        check(setting('sectors.outer').readOnly &&
+          Number(setting('sectors.outer').value) === Number(field(card.closest('.point-card'), 'maxDistance').value),
+          'Point and item sector settings must show a read-only outer radius computed from maxDistance');
+      }
+      check([...$('settingsForm').querySelectorAll('input[type="color"]')].every(element => {
+        const r = element.getBoundingClientRect();
+        return r.width > 0 && r.width <= 56 && r.height > 0 && r.height <= 44;
+      }), 'Settings color inputs must remain compact swatches');
     };
     const saveSettings = () => {
       $('settingsForm').requestSubmit();
@@ -100,11 +119,23 @@ export async function checkEditor(view) {
     const first = cards()[0];
     check(!first.querySelector('.point-body').hidden, 'New point settings must open immediately');
     const name = 'Альфа "А", <img src=x onerror=alert(1)>';
-    check(field(first, 'name').hidden && first.querySelector('form').hidden, 'Point name and coordinate forms must initially be hidden');
-    check(first.querySelector('.point-head').lastElementChild.dataset.action === 'toggle-point' &&
-      first.querySelector('.point-body').lastElementChild.dataset.action === 'delete-point', 'Collapse and delete controls must occupy their redesigned positions');
+    const coordinates = card => card.querySelector('form[data-action="coordinates"]');
+    check(field(first, 'name').hidden && coordinates(first).popover === 'auto' &&
+      !coordinates(first).matches(':popover-open'), 'Point name input must start hidden and the native coordinate popover closed');
+    const head = first.querySelector('.point-head');
+    check(head.children.length === 4 && head.children[0].dataset.action === 'toggle-point' &&
+      head.children[1].matches('.point-title') &&
+      head.children[1].contains(first.querySelector('.point-name-text')) &&
+      head.children[1].contains(field(first, 'name')) &&
+      head.children[1].contains(first.querySelector('[data-action="edit-name"]')) &&
+      head.children[2].dataset.action === 'center-point' &&
+      head.children[3].dataset.action === 'toggle-visibility' &&
+      first.querySelector('.point-body').lastElementChild.dataset.action === 'delete-point',
+      'Point header must order collapse, title with pencil, center and visibility; delete must remain last in the body');
     check(!field(first, 'count') && !first.querySelector('[data-action="reorder-point"]'), 'Count input and reorder grip must be removed');
-    rename(first, name);
+    check(!document.querySelector('[data-action="add-zone"]'), 'Manual add-sector buttons must be removed entirely');
+    rename(first, name, 'click');
+    rename(first, name, 'Enter');
     input(field(first, 'maxDistance'), 200);
     input(field(first, 'step'), 75);
     check([...document.querySelectorAll('.distance-label')].map(e => e.textContent).join('|') === '75 м|150 м|200 м', 'A partial final ring must end exactly at maxDistance');
@@ -142,18 +173,26 @@ export async function checkEditor(view) {
     check(second.querySelector('.point-body').hidden, 'Collapse must hide the point body');
     clickMap(.5, .5);
     check(cards().length === 2 && !first.querySelector('.point-body').hidden && first.classList.contains('selected'), 'Click inside a point radius must select and expand it');
-    action(first, 'add-zone');
-    action(first, 'add-zone');
+    action(first, 'draw-zone');
+    clickMap(.7, .3);
+    clickMap(.8, .5);
+    action(first, 'draw-zone');
+    clickMap(.6, .3);
+    clickMap(.7, .5);
     const sectors = first.querySelectorAll('.zone-card');
-    check(sectors.length === 2 && second.querySelectorAll('.zone-card').length === 0, 'Plus must append sectors only under its point');
+    check(cards().length === 2 && sectors.length === 2 && second.querySelectorAll('.zone-card').length === 0, 'Two-click drawing must append sectors only under its point');
     input(sectors[0].querySelector('[data-zone-field="start"]'), 15);
     check([...sectors[0].querySelectorAll('input')].map(e => e.dataset.zoneField).join() === 'start,end', 'Sector rows must contain only start and end angle inputs');
     openSettings(sectors[0], 'zone-settings');
-    input(setting('sectors.outer'), 800);
+    check(setting('sectors.outer').readOnly && setting('sectors.outer').value === '200',
+      'Local sector outer radius must be read-only and equal its point maxDistance');
     saveSettings();
     input(sectors[1].querySelector('[data-zone-field="start"]'), 120);
     input(sectors[1].querySelector('[data-zone-field="end"]'), 190);
     openSettings(sectors[1], 'zone-settings');
+    input(setting('sectors.inner'), 200);
+    $('settingsForm').requestSubmit();
+    check($('settingsDialog').open && !setting('sectors.inner').checkValidity(), 'Sector dialog must reject an inner radius equal to computed outer');
     input(setting('sectors.inner'), 900);
     $('settingsForm').requestSubmit();
     check($('settingsDialog').open && !setting('sectors.inner').checkValidity(), 'Sector dialog must reject an inner radius beyond the outer radius');
@@ -161,7 +200,24 @@ export async function checkEditor(view) {
     saveSettings();
     let snapshot = await project();
     check(snapshot.points[0].zones[0].start === 15 && snapshot.points[0].zones[1].start === 120, 'Sector editors must update separate items');
-    check(snapshot.points[0].zones[0].settings.outer === 800 && snapshot.points[0].settings.step === 75, 'Sector edits must preserve independent ring settings');
+    check(!Object.hasOwn(snapshot.points[0].zones[0].settings, 'outer') && snapshot.points[0].settings.step === 75,
+      'Saving a computed outer radius must not create an override or change ring settings');
+    input(field(first, 'maxDistance'), 350);
+    $('exportGeoJSON').click();
+    const grownSectors = JSON.parse(await downloaded.text()).features.filter(f => f.properties.type === 'restricted_zone' && f.properties.point === 1);
+    check(grownSectors.length === 2 && grownSectors.every(f => f.properties.outer_radius_m === 350),
+      'Growing maxDistance must grow every sector GeoJSON outer radius');
+    input(field(first, 'maxDistance'), 80);
+    $('exportGeoJSON').click();
+    const shrunkSectors = JSON.parse(await downloaded.text()).features.filter(f => f.properties.type === 'restricted_zone' && f.properties.point === 1);
+    check(shrunkSectors.length === 2 && shrunkSectors.every(f => f.properties.outer_radius_m === 80 && f.properties.inner_radius_m < 80) &&
+      shrunkSectors[1].properties.inner_radius_m === 79,
+      'Shrinking maxDistance must shrink sector GeoJSON outer radii and clamp inner radius below outer');
+    openSettings(sectors[1], 'zone-settings');
+    check(setting('sectors.outer').readOnly && setting('sectors.outer').value === '80' && setting('sectors.inner').value === '79',
+      'Local sector fields must reflect the shrunken computed outer and normalized inner');
+    $('closeSettings').click();
+    input(field(first, 'maxDistance'), 200);
     const geometryCount = document.querySelectorAll('.distance-label').length;
     action(first, 'toggle-point');
     check(first.querySelector('.point-body').hidden &&
@@ -191,27 +247,43 @@ export async function checkEditor(view) {
     sectors[0].querySelector('[data-action="delete-zone"]').click();
     check(first.querySelectorAll('.zone-card').length === 1, 'Delete must remove only the requested sector');
     action(second, 'toggle-point');
-    action(second, 'add-zone');
+    action(second, 'draw-zone');
+    clickMap(.7, .3);
+    clickMap(.8, .5);
     action(second, 'edit-coordinates');
-    check(!second.querySelector('form').hidden && second.querySelector('.coordinate-text').hidden, 'Coordinate button must reveal its form');
+    check(coordinates(second).matches(':popover-open') && !second.querySelector('[data-action="edit-coordinates"]').hidden,
+      'Coordinate button must open its native popover and remain visible');
     input(field(second, 'lat'), '');
-    second.querySelector('form').dispatchEvent(new Event('submit', {bubbles: true, cancelable: true}));
+    coordinates(second).dispatchEvent(new Event('submit', {bubbles: true, cancelable: true}));
     check((await project()).points[1].lat === snapshot.points[1].lat, 'Empty coordinates must not move a point');
     input(field(second, 'lat'), 50.46);
     input(field(second, 'lng'), 30.54);
-    second.querySelector('form').requestSubmit();
+    coordinates(second).requestSubmit();
     snapshot = await project();
     check(snapshot.points[1].lat === 50.46 && snapshot.points[1].lng === 30.54, 'Coordinate form must edit its own point');
-    check(second.querySelector('form').hidden && !second.querySelector('.coordinate-text').hidden, 'Coordinate submit must restore the read-only button');
+    check(!coordinates(second).matches(':popover-open') && !second.querySelector('[data-action="edit-coordinates"]').hidden,
+      'Explicit coordinate apply must close the popover and keep its button visible');
     action(second, 'edit-coordinates');
     input(field(second, 'lat'), 50.4601);
     field(second, 'lat').dispatchEvent(new FocusEvent('focusout', {bubbles: true, relatedTarget: field(second, 'lng')}));
-    check(!second.querySelector('form').hidden && (await project()).points[1].lat === 50.46, 'Moving focus between coordinates must not submit early');
+    check(coordinates(second).matches(':popover-open') && (await project()).points[1].lat === 50.46, 'Moving focus between coordinates must not submit early');
     field(second, 'lng').dispatchEvent(new FocusEvent('focusout', {bubbles: true, relatedTarget: null}));
-    check(second.querySelector('form').hidden && (await project()).points[1].lat === 50.4601, 'Leaving the coordinate form must automatically save');
+    check(coordinates(second).matches(':popover-open') && (await project()).points[1].lat === 50.46,
+      'Leaving coordinate inputs must not submit or close the popover');
+    field(second, 'lng').dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', bubbles: true, cancelable: true}));
+    check(!coordinates(second).matches(':popover-open') && (await project()).points[1].lat === 50.46 &&
+      !second.querySelector('[data-action="edit-coordinates"]').hidden,
+      'Escape must cancel coordinate edits without moving the point or hiding its button');
     action(second, 'edit-coordinates');
-    input(field(second, 'lat'), 50.46);
-    second.querySelector('form').requestSubmit();
+    check(field(second, 'lat').value === '50.460000' && field(second, 'lng').value === '30.540000',
+      'Reopening coordinates must discard canceled input values');
+    input(field(second, 'lat'), 50.4602);
+    coordinates(second).hidePopover();
+    check(!coordinates(second).matches(':popover-open') && (await project()).points[1].lat === 50.46,
+      'Native popover dismissal must cancel coordinate edits without submitting');
+    action(second, 'edit-coordinates');
+    check(field(second, 'lat').value === '50.460000', 'Reopening after native dismissal must restore saved coordinates');
+    coordinates(second).requestSubmit();
     check(snapshot.points[0].name === name && snapshot.points[0].settings.step === 75 &&
       snapshot.points[1].settings.step === 100, 'Editing another point must preserve names and independent settings');
     action(second, 'draw-zone');
@@ -275,25 +347,34 @@ export async function checkEditor(view) {
       document.querySelectorAll('.center-dot').length === 2, 'Old V3 projects must migrate full personal styles and default missing landmarks and visibility');
     await load({...saved,
       globalSettings:{...saved.globalSettings,sectors:{...saved.globalSettings.sectors,inner:0,outer:500}},
-      points:[{...saved.points[0],zoneSettings:{outer:1000},zones:[{start:30,end:90,settings:{inner:800}}]}],
+      points:[{...saved.points[0],zoneSettings:{outer:1000},zones:[{start:30,end:90,settings:{inner:800,outer:900}}]}],
       selectedPoint:0
     });
     const parentSector = await project();
     check(parentSector.globalSettings.sectors.outer === 500 &&
       JSON.stringify(parentSector.points[0].zoneSettings) === '{"outer":1000}' &&
-      JSON.stringify(parentSector.points[0].zones[0].settings) === '{"inner":800}',
-      'V4 sparse sector inner radius must normalize against point outer 1000, not global outer 500');
+      parentSector.points[0].zones[0].settings.inner === 800 && parentSector.points[0].zones[0].settings.outer === 900,
+      'V4 must retain stored legacy radii without rewriting personal geometry on import');
     openSettings(cards()[0].querySelector('.zone-card'), 'zone-settings');
-    check(setting('sectors.inner').value === '800' && setting('sectors.outer').value === '1000',
-      'Sector editor must resolve sparse inner and outer overrides from the actual parent');
-    $('closeSettings').click();
+    check(setting('sectors.inner').value === '199' && setting('sectors.outer').value === '200' && setting('sectors.outer').readOnly,
+      'Sector editor must ignore legacy explicit outer overrides and show point maxDistance');
+    saveSettings();
     $('exportGeoJSON').click();
     const parentPolygon = JSON.parse(await downloaded.text()).features.find(f => f.properties.type === 'restricted_zone');
-    check(parentPolygon.properties.inner_radius_m === 800 && parentPolygon.properties.outer_radius_m === 1000,
-      'GeoJSON must use sector inner 800 with inherited point outer 1000');
-    await load(parentSector);
-    check(pointData((await project()).points) === pointData(parentSector.points),
-      'Sparse sector inner 800 must survive a second V4 round-trip unchanged');
+    check(parentPolygon.properties.inner_radius_m === 199 && parentPolygon.properties.outer_radius_m === 200,
+      'GeoJSON must ignore legacy global, point and item outer overrides in favor of maxDistance');
+    openSettings(null);
+    check(!setting('sectors.outer') && !$('settingsFields').querySelector('[name="sectors.outer"]'),
+      'Global settings form and field list must omit sector outer radius');
+    saveSettings();
+    const legacyOuterSaved = await project();
+    check(pointData(legacyOuterSaved.points) === pointData(parentSector.points) &&
+      legacyOuterSaved.globalSettings.sectors.outer === 500,
+      'Saving local and global settings must preserve serialized legacy outer fields');
+    await load(legacyOuterSaved);
+    check(pointData((await project()).points) === pointData(legacyOuterSaved.points) &&
+      (await project()).globalSettings.sectors.outer === 500,
+      'Legacy outer fields and normalized inner radius must survive a second V4 round-trip');
     await load(saved);
     const landmarkClick = (dx, dy) => {
       const r = document.querySelector('.center-dot.selected').getBoundingClientRect();
@@ -550,9 +631,10 @@ export async function checkEditor(view) {
       Object.keys(inherited.points[1].landmarkSettings).length === 0 &&
       Object.keys(inherited.points[1].landmarks[0].settings).length === 0, 'New point and item style overrides must start sparse');
     openSettings(null);
-    check(['rings.color','sectors.inner','sectors.outer','sectors.color','sectors.opacity',
+    check(['rings.color','sectors.inner','sectors.color','sectors.opacity',
       'landmarks.nameSize','landmarks.distanceSize','landmarks.angleSize','landmarks.paddingX','landmarks.paddingY',
       'landmarks.backgroundOpacity','landmarks.angle'].every(name => setting(name)), 'Global dialog must expose every redesigned style group');
+    check(!setting('sectors.outer'), 'Global sector settings must not expose an outer radius field');
     check($('resetSettings').hidden, 'Global settings must not offer a personal override reset');
     input(setting('rings.color'), '#112233');
     $('closeSettings').click();
