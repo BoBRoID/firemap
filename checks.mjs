@@ -78,7 +78,9 @@ export async function checkEditor(view) {
     check(!$('fit') && !document.querySelector('.float-tools'), 'Global fit button must be removed');
     check($('toggleSettings').querySelector('svg') && !$('toggleSettings').textContent.trim(), 'Menu toggle must be an arrow, not a text button');
     check(!$('settingsPanel').contains($('toggleSettings')), 'Sidebar toggle must remain outside the sidebar');
-    check(document.querySelector('script[src="app.js"]') && document.querySelector('link[href="styles.css"]'), 'Application script and styles must be external');
+    check(document.querySelector('#app-script:not([src])') && document.querySelector('style#app-styles') &&
+      !document.querySelector('script[src="./app.js"],script[src="app.js"],link[href="./styles.css"],link[href="styles.css"]'),
+      'Application script and styles must be embedded for single-file publishing and local opening');
     check($('saveMenu').hidden && ['exportJSON','exportPoints','exportGeoJSON','print'].every(id => $('saveMenu').contains($(id))), 'Save dropdown must contain all four existing actions');
     $('saveToggle').click();
     check(!$('saveMenu').hidden && $('saveToggle').getAttribute('aria-expanded') === 'true', 'Save toggle must open its dropdown');

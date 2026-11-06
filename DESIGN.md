@@ -6,7 +6,11 @@ dialog. No framework, icon package, font download, or new dependency is added.
 
 ## Tokens
 
-All UI colors are declared as CSS custom properties in `styles.css`. The
+All UI colors are declared as CSS custom properties in `index.html` inside
+`style#app-styles`. Application JavaScript lives in `script#app-script` in the
+same file, so publishing or opening `index.html` needs no sibling assets or local
+server. Leaflet loads from its pinned CDN URL; it and OpenStreetMap tiles require
+an internet connection. The
 existing palette remains the source of truth:
 
 - Ink `#1d2b42`, muted ink `#52637a`, white panel `#ffffff`.

@@ -6,7 +6,596 @@
   <meta name="description" content="Редактор точок, кіл відстаней, секторів та орієнтирів на карті." />
   <title>Картографічний редактор зон — відстані та сектори</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="anonymous" />
-  <link rel="stylesheet" href="./styles.css" />
+  <style id="app-styles">
+:root {
+  --font-ui: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+  --ink: #1d2b42;
+  --ink-strong: #14233a;
+  --ink-muted: #52637a;
+  --ink-soft: #68788d;
+  --surface-canvas: #edf1f6;
+  --surface-panel: #ffffff;
+  --surface-subtle: #f6f9fd;
+  --surface-control: #f4f7fb;
+  --surface-hover: #e9effa;
+  --surface-selected: #e4eeff;
+  --surface-accent-soft: #eef4ff;
+  --border: #dce4ef;
+  --border-soft: #e8edf5;
+  --border-strong: #d9e2ee;
+  --accent: #3268ce;
+  --accent-strong: #295bb9;
+  --accent-ink: #1d58bc;
+  --accent-map: #244fb3;
+  --danger: #a63146;
+  --danger-surface: #fff5f6;
+  --danger-border: #f1d7dc;
+  --mode: #204b93;
+  --overlay-white: #fffffff2;
+  --overlay-label: #ffffffe8;
+  --shadow-panel: #172e4811;
+  --shadow-control: #172e4822;
+  --shadow-marker: #1e385d33;
+  --shadow-landmark: #172e4844;
+  --focus-wash: #3e75d91c;
+  --accent-wash: #244fb333;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-md: 13px;
+  --text-lg: 16px;
+  --weight-medium: 620;
+  --weight-semibold: 700;
+  --weight-bold: 750;
+
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-dialog: 12px;
+
+  --control-compact: 32px;
+  --control-default: 36px;
+  --control-touch: 40px;
+  --sidebar-width: 380px;
+  --sidebar-mobile-gap: 48px;
+  --edge-gap: 8px;
+  --edge-tab-size: 40px;
+  --edge-top: 16px;
+  --motion-fast: 140ms;
+  --motion-panel: 220ms;
+  --ease-standard: cubic-bezier(.2, .7, .2, 1);
+  --layer-map-ui: 450;
+  --layer-sidebar: 600;
+  --layer-edge: 650;
+  --layer-menu: 700;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; overflow: hidden; }
+body { font-family: var(--font-ui); color: var(--ink); background: var(--surface-canvas); font-synthesis: none; }
+button, input, select { font: inherit; }
+button { cursor: pointer; }
+svg { display: block; }
+[hidden], .hidden { display: none !important; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+
+.app {
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+  height: 100dvh;
+  overflow: hidden;
+  transition: grid-template-columns var(--motion-panel) var(--ease-standard);
+}
+
+.app.settings-closed { grid-template-columns: 0 minmax(0, 1fr); }
+
+.side {
+  z-index: var(--layer-sidebar);
+  width: var(--sidebar-width);
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  overflow: hidden;
+  background: var(--surface-panel);
+  box-shadow: 2px 0 18px var(--shadow-panel);
+  transform: translateX(0);
+  transition: transform var(--motion-panel) var(--ease-standard);
+}
+
+.app.settings-closed .side { transform: translateX(-100%); }
+
+.sidebar-header {
+  min-width: 0;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.sidebar-header h1 {
+  margin: 0 0 var(--space-1);
+  color: var(--ink-strong);
+  font-size: var(--text-lg);
+  line-height: 1.25;
+  letter-spacing: -.3px;
+}
+
+.title-row {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--control-compact);
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.card-title-text {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ink-strong);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
+  line-height: 1.25;
+  letter-spacing: -.3px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#cardTitle:not([hidden]) { grid-column: 1; }
+
+.scroll {
+  min-height: 0;
+  padding: var(--space-3);
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.sidebar-footer {
+  padding: var(--space-3);
+  border-top: 1px solid var(--border-soft);
+  background: var(--surface-subtle);
+}
+
+.list-heading,
+.heading-label,
+.heading-actions,
+.section-heading,
+.section-actions,
+.dialog-header,
+.dialog-actions {
+  display: flex;
+  align-items: center;
+}
+
+.list-heading {
+  min-height: var(--control-compact);
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.heading-label { min-width: 0; gap: var(--space-2); font-size: var(--text-md); font-weight: var(--weight-bold); }
+.heading-actions, .section-actions { flex: 0 0 auto; gap: var(--space-1); }
+
+.chip {
+  min-width: var(--space-5);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--surface-accent-soft);
+  color: var(--accent-ink);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  line-height: 1;
+  text-align: center;
+}
+
+.empty-state {
+  margin: 0 0 var(--space-3);
+  padding: var(--space-5) var(--space-4);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-lg);
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  text-align: center;
+}
+
+.point-list,
+.zone-list,
+.landmark-list {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.point-card {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-panel);
+}
+
+.point-card:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.point-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) repeat(4, var(--control-compact));
+  gap: var(--space-1);
+  align-items: center;
+  min-height: var(--control-compact);
+  padding: 0 var(--space-2);
+  background: var(--surface-control);
+}
+
+.point-card.selected > .point-head { background: var(--surface-selected); }
+.point-card.map-hidden .point-name-text { color: var(--ink-soft); }
+.point-card.collapsed { cursor: grab; touch-action: none; }
+.point-card.reordering { cursor: grabbing; opacity: .65; user-select: none; }
+
+.point-name-text,
+.landmark-name {
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.point-name:not([hidden]) { min-width: 0; height: var(--control-compact); }
+
+.point-toggle { order: 5; }
+.point-toggle[aria-expanded="true"] svg { transform: rotate(90deg); }
+
+.point-body { padding: var(--space-3); }
+
+.section {
+  margin-bottom: var(--space-3);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.section-heading {
+  min-height: var(--control-compact);
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.section-heading strong { min-width: 0; font-size: var(--text-sm); }
+
+.coordinate-text {
+  min-width: 0;
+  max-width: 68%;
+  padding: var(--space-1) var(--space-2);
+  overflow: hidden;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--accent-ink);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.coordinate-text:hover { background: var(--surface-hover); }
+
+.field {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.cols2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+label {
+  color: var(--ink-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+}
+
+input[type="number"],
+input[type="text"],
+select {
+  width: 100%;
+  min-width: 0;
+  height: var(--control-compact);
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  outline: none;
+  background: var(--surface-panel);
+  color: var(--ink);
+  font-size: var(--text-sm);
+}
+
+input:focus,
+select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--focus-wash);
+}
+
+input[type="color"] {
+  width: 100%;
+  height: var(--control-default);
+  padding: var(--space-1);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-panel);
+  cursor: pointer;
+}
+
+input[type="range"] { width: 100%; accent-color: var(--accent); }
+
+.input-unit { position: relative; min-width: 0; }
+.input-unit input { padding-right: var(--space-6); font-variant-numeric: tabular-nums; }
+.unit { position: absolute; top: 50%; right: var(--space-2); color: var(--ink-soft); font-size: var(--text-xs); pointer-events: none; transform: translateY(-50%); }
+
+.btn {
+  width: 100%;
+  min-height: var(--control-default);
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-control);
+  color: var(--ink);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  transition: background-color var(--motion-fast) ease, border-color var(--motion-fast) ease, color var(--motion-fast) ease, transform var(--motion-fast) ease;
+}
+
+.btn:hover { background: var(--surface-hover); }
+.btn:active { transform: translateY(1px); }
+.btn svg { width: 18px; height: 18px; }
+.btn-primary { border-color: var(--accent); background: var(--accent); color: var(--surface-panel); }
+.btn-primary:hover { border-color: var(--accent-strong); background: var(--accent-strong); }
+.btn-danger { border-color: var(--danger-border); background: var(--danger-surface); color: var(--danger); }
+.btn-compact { width: auto; min-height: var(--control-compact); padding: var(--space-1) var(--space-2); }
+.delete-point { margin-top: var(--space-1); }
+
+.icon-btn {
+  width: var(--control-compact);
+  height: var(--control-compact);
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ink-muted);
+  transition: background-color var(--motion-fast) ease, color var(--motion-fast) ease, transform var(--motion-fast) ease;
+}
+
+.icon-btn:hover { background: var(--surface-hover); color: var(--accent-ink); }
+.icon-btn:active { transform: translateY(1px); }
+.icon-btn svg { width: 17px; height: 17px; pointer-events: none; }
+.settings-gear svg { width: 16px; height: 16px; }
+.danger-icon { color: var(--danger); }
+
+button:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.no-zones {
+  margin: 0;
+  padding: var(--space-2);
+  color: var(--ink-soft);
+  font-size: var(--text-xs);
+  text-align: center;
+}
+
+.zone-card {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) var(--control-compact) var(--control-compact);
+  gap: var(--space-1);
+  align-items: center;
+  padding: var(--space-1);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  background: var(--surface-subtle);
+}
+
+.landmark-item {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--control-compact) var(--control-compact);
+  gap: var(--space-1);
+  align-items: center;
+  min-height: calc(var(--control-compact) + var(--space-2));
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  background: var(--surface-subtle);
+}
+
+.edge-tab {
+  position: absolute;
+  top: var(--edge-top);
+  left: 0;
+  z-index: var(--layer-edge);
+  width: var(--edge-tab-size);
+  height: var(--edge-tab-size);
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-panel);
+  color: var(--ink-muted);
+  box-shadow: 0 2px 10px var(--shadow-control);
+  transform: translateX(calc(var(--sidebar-width) + var(--edge-gap)));
+  transition: background-color var(--motion-fast) ease, color var(--motion-fast) ease, transform var(--motion-panel) var(--ease-standard);
+}
+
+.edge-tab:hover { background: var(--surface-hover); color: var(--accent-ink); }
+.edge-tab svg { width: 19px; height: 19px; }
+.save-toggle { transform: translateX(calc(var(--sidebar-width) + var(--edge-gap) + var(--edge-tab-size) + var(--space-1))); }
+.app.settings-closed .settings-toggle { transform: translateX(0); border-radius: 0 var(--radius-md) var(--radius-md) 0; }
+.app.settings-closed .save-toggle { transform: translateX(calc(var(--edge-tab-size) + var(--space-1))); }
+.app.settings-closed .settings-toggle svg { transform: rotate(180deg); }
+
+.save-menu {
+  position: absolute;
+  top: calc(var(--edge-top) + var(--edge-tab-size) + var(--space-2));
+  left: 0;
+  z-index: var(--layer-menu);
+  width: 196px;
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-panel);
+  box-shadow: 0 8px 24px var(--shadow-control);
+  transform: translateX(calc(var(--sidebar-width) + var(--edge-gap) + var(--edge-tab-size) + var(--space-1)));
+  transition: transform var(--motion-panel) var(--ease-standard), opacity var(--motion-fast) ease;
+}
+
+.app.settings-closed .save-menu { transform: translateX(calc(var(--edge-tab-size) + var(--space-1))); }
+.save-menu .btn { justify-content: flex-start; }
+
+.map-wrap { position: relative; z-index: 0; min-width: 0; min-height: 0; overflow: hidden; }
+#map { width: 100%; height: 100%; background: var(--surface-canvas); }
+.map-header { position: absolute; top: var(--space-4); right: 60px; left: 104px; z-index: var(--layer-map-ui); pointer-events: none; }
+.badge-mode { width: max-content; max-width: 100%; padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); background: var(--mode); color: var(--surface-panel); box-shadow: 0 4px 16px var(--shadow-control); font-size: var(--text-sm); font-weight: var(--weight-medium); }
+
+.distance-label {
+  width: max-content;
+  padding: 2px var(--space-1);
+  border: 1px solid var(--surface-panel);
+  border-radius: 5px;
+  background: var(--overlay-label);
+  box-shadow: 0 1px 3px var(--shadow-control);
+  color: var(--mode);
+  font-weight: var(--weight-bold);
+  text-align: center;
+  white-space: nowrap;
+  transform: translate(-50%, -50%);
+}
+
+.leaflet-div-icon { border: 0; background: transparent; }
+.center-dot { width: var(--space-4); height: var(--space-4); border: 4px solid var(--accent-map); border-radius: 50%; background: var(--surface-panel); box-shadow: 0 0 0 3px var(--accent-wash), 0 2px 8px var(--shadow-marker); }
+.center-dot.selected { border-color: var(--surface-panel); background: var(--accent-map); box-shadow: 0 0 0 3px var(--accent-map); }
+.landmark-dot { position: absolute; top: -5px; left: -5px; width: 10px; height: 10px; border: 2px solid var(--surface-panel); background: var(--mode); box-shadow: 0 1px 4px var(--shadow-landmark); transform: rotate(45deg); }
+.landmark-caption { position: absolute; top: -14px; left: var(--space-3); width: max-content; max-width: 200px; padding: var(--space-1) var(--space-2); overflow-wrap: anywhere; border: 1px solid var(--border); border-radius: 5px; background: var(--overlay-white); box-shadow: 0 1px 4px var(--shadow-control); color: var(--ink); }
+.landmark-caption strong { display: block; font-size: var(--text-sm); }
+.landmark-caption small { display: block; margin-top: 2px; color: var(--ink-muted); font-size: var(--text-xs); white-space: nowrap; }
+
+dialog {
+  width: min(440px, calc(100vw - var(--space-8)));
+  max-height: calc(100dvh - var(--space-8));
+  padding: 0;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-dialog);
+  background: var(--surface-panel);
+  color: var(--ink);
+  box-shadow: 0 18px 48px var(--shadow-landmark);
+}
+
+dialog::backdrop { background: var(--shadow-landmark); }
+#settingsForm { padding: var(--space-4); }
+.dialog-header { justify-content: space-between; gap: var(--space-3); margin-bottom: var(--space-4); }
+.dialog-header h2 { margin: 0; color: var(--ink-strong); font-size: var(--text-lg); line-height: 1.25; }
+#settingsScope { margin: var(--space-1) 0 0; color: var(--ink-soft); font-size: var(--text-sm); }
+#settingsFields { display: grid; gap: var(--space-3); }
+.settings-group-title {
+  margin: var(--space-1) 0 0;
+  color: var(--ink-strong);
+  font-size: var(--text-sm);
+  line-height: 1.35;
+}
+.dialog-actions { justify-content: flex-end; gap: var(--space-2); margin-top: var(--space-5); }
+.dialog-actions .btn { width: auto; min-width: 104px; }
+
+@media (max-width: 760px) {
+  :root {
+    --sidebar-width: min(356px, calc(100vw - var(--sidebar-mobile-gap)));
+    --sidebar-mobile-gap: 96px;
+    --control-compact: var(--control-touch);
+    --edge-top: 12px;
+  }
+
+  .app,
+  .app.settings-closed { display: block; }
+  .map-wrap { position: absolute; inset: 0; }
+  .side { position: absolute; inset: 0 auto 0 0; height: 100dvh; }
+  .sidebar-header, .scroll, .sidebar-footer { padding-right: var(--space-3); padding-left: var(--space-3); }
+  .point-head { grid-template-columns: minmax(0, 1fr) repeat(4, var(--control-touch)); }
+  .icon-btn { width: var(--control-touch); height: var(--control-touch); }
+  .btn-compact { min-height: var(--control-touch); }
+  .zone-card { grid-template-columns: repeat(2, minmax(0, 1fr)) var(--control-touch) var(--control-touch); }
+  .landmark-item { grid-template-columns: minmax(0, 1fr) var(--control-touch) var(--control-touch); }
+  .save-menu,
+  .app.settings-closed .save-menu { right: var(--space-2); left: auto; transform: none; }
+  .leaflet-top.leaflet-right { top: calc(var(--edge-top) + var(--edge-tab-size) + var(--space-2)); }
+  .map-header { top: var(--space-3); right: 56px; left: 96px; }
+  .badge-mode { font-size: var(--text-xs); }
+}
+
+@media (max-width: 420px) {
+  .point-head { grid-template-columns: minmax(0, 1fr) repeat(4, 36px); }
+  .point-head .icon-btn { width: 36px; height: 36px; }
+  .section-actions { gap: 0; }
+  .section-actions .icon-btn { width: 36px; height: 36px; }
+  .btn-compact { min-height: 36px; }
+  .zone-card { grid-template-columns: repeat(2, minmax(0, 1fr)) 36px 36px; }
+  .zone-card .icon-btn { width: 36px; height: 36px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
+@page { size: A4 landscape; margin: 8mm; }
+
+@media print {
+  html, body, .app { height: 100%; min-height: 0; margin: 0; padding: 0; background: var(--surface-panel); }
+  .app { display: block; }
+  .side, .badge-mode, .leaflet-control-zoom, .edge-tab, .save-menu { display: none !important; }
+  .map-wrap { position: relative; inset: auto; width: 100%; height: 100%; }
+  .map-header { top: var(--space-2); right: auto; left: var(--space-2); padding-right: 0; }
+  #map { width: 100%; height: 100%; }
+  .leaflet-control-attribution { font-size: 8px !important; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+  </style>
 </head>
 <body>
 <div class="app">
@@ -197,6 +786,741 @@
 </dialog>
 
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="anonymous"></script>
-<script src="./app.js"></script>
+<script id="app-script">
+(() => {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const f64 = x => Number(x);
+  const clamp = (n,lo,hi) => Math.min(hi,Math.max(lo,n));
+  const valid = (n,lo,hi,fallback) => Number.isFinite(n) ? clamp(n,lo,hi) : fallback;
+  const fmt = n => Math.round(n).toLocaleString('uk-UA') + ' м';
+  const svgNs='http://www.w3.org/2000/svg';
+  const createSvg = name => document.createElementNS(svgNs,name);
+  // Direct geodesic on the WGS84 ellipsoid (Vincenty), meters + clockwise azimuth from north.
+  function destination(lat, lon, distance, bearing) {
+    if (!(distance>0)) return [lat,lon];
+    const a=6378137, b=6356752.314245179, f=1/298.257223563;
+    const alpha1=bearing*Math.PI/180, phi1=lat*Math.PI/180;
+    const tanU1=(1-f)*Math.tan(phi1), cosU1=1/Math.sqrt(1+tanU1*tanU1),sinU1=tanU1*cosU1;
+    const sinAlpha=cosU1*Math.sin(alpha1),cos2Alpha=1-sinAlpha*sinAlpha;
+    const u2=cos2Alpha*(a*a-b*b)/(b*b);
+    const A=1+u2/16384*(4096+u2*(-768+u2*(320-175*u2)));
+    const B=u2/1024*(256+u2*(-128+u2*(74-47*u2)));
+    const sigma1=Math.atan2(tanU1,Math.cos(alpha1));
+    let sigma=distance/(b*A),prior=Infinity,cs2sm=0,sinSigma=0,cosSigma=0;
+    for(let i=0;i<30 && Math.abs(sigma-prior)>1e-13;i++) {
+      cs2sm=Math.cos(2*sigma1+sigma);sinSigma=Math.sin(sigma);cosSigma=Math.cos(sigma);
+      const delta=B*sinSigma*(cs2sm+B/4*(cosSigma*(-1+2*cs2sm*cs2sm)-B/6*cs2sm*(-3+4*sinSigma*sinSigma)*(-3+4*cs2sm*cs2sm)));
+      prior=sigma; sigma=distance/(b*A)+delta;
+    }
+    sinSigma=Math.sin(sigma); cosSigma=Math.cos(sigma);cs2sm=Math.cos(2*sigma1+sigma);
+    const t=sinU1*sinSigma-cosU1*cosSigma*Math.cos(alpha1);
+    const phi2=Math.atan2(sinU1*cosSigma+cosU1*sinSigma*Math.cos(alpha1),(1-f)*Math.sqrt(sinAlpha*sinAlpha+t*t));
+    const lambda=Math.atan2(sinSigma*Math.sin(alpha1),cosU1*cosSigma-sinU1*sinSigma*Math.cos(alpha1));
+    const C=f/16*cos2Alpha*(4+f*(4-3*cos2Alpha));
+    const L=lambda-(1-C)*f*sinAlpha*(sigma+C*sinSigma*(cs2sm+C*cosSigma*(-1+2*cs2sm*cs2sm)));
+    const lon2=lon+L*180/Math.PI;
+    return [phi2*180/Math.PI,((lon2+540)%360)-180];
+  }
+  function azimuth(from,to) {
+    const lat1=from.lat*Math.PI/180,lat2=to.lat*Math.PI/180,dl=(to.lng-from.lng)*Math.PI/180;
+    const y=Math.sin(dl)*Math.cos(lat2),x=Math.cos(lat1)*Math.sin(lat2)-Math.sin(lat1)*Math.cos(lat2)*Math.cos(dl);
+    return (Math.atan2(y,x)*180/Math.PI+360)%360;
+  }
+  function ringPoints(center,radius) {
+    const n=180,points=[];
+    for(let i=0;i<=n;i++)points.push(destination(center.lat,center.lng,radius,i*360/n));
+    return points;
+  }
+  function arcPoints(center,radius,start,end) {
+    const diff=(end-start+360)%360;
+    const sweep=(diff===0 && start!==end)?360:diff;
+    const n=Math.max(2,Math.ceil(sweep/2));
+    const list=[];
+    for(let i=0;i<=n;i++)list.push(destination(center.lat,center.lng,radius,start+sweep*i/n));
+    return list;
+  }
+  function zonePolygon(center,z) {
+    const start=clamp(z.start,0,359.99),end=clamp(z.end,0,360);
+    const outer=arcPoints(center,z.outer,start,end);
+    if(z.inner>0) {
+      const inner=arcPoints(center,z.inner,start,end).reverse();
+      return [...outer,...inner];
+    }
+    return [[center.lat,center.lng],...outer];
+  }
+  const map=L.map('map',{zoomControl:true,preferCanvas:false,worldCopyJump:false,zoomSnap:0.25});
+  map.zoomControl.setPosition('topright');
+  map.setView([50.4501,30.5234],14);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+    maxZoom:19,attribution:'© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors',crossOrigin:true
+  }).addTo(map);
+  L.control.scale({metric:true,imperial:false,position:'bottomleft'}).addTo(map);
+  const renderer=L.svg({padding:0.6});renderer.addTo(map);
+  const ringsLayer=L.layerGroup().addTo(map),labelsLayer=L.layerGroup().addTo(map),zonesLayer=L.layerGroup().addTo(map),landmarksLayer=L.layerGroup().addTo(map),centerLayer=L.layerGroup().addTo(map);
+  let points=[],center=null,pointId=1,zoneId=1,landmarkId=1,mode='center',draftStart=0,preview=null;
+  let ringBounds=null;
+  // This SVG pattern lives in the same renderer as sector polygon paths.
+  const defs=createSvg('defs');renderer._container.insertBefore(defs,renderer._container.firstChild);
+  function getPattern(z) {
+    const id='zonal-hatch-'+z.id;
+    let p=document.getElementById(id);
+    if(!p){
+      p=createSvg('pattern');p.id=id;p.setAttribute('patternUnits','userSpaceOnUse');p.setAttribute('width','9');p.setAttribute('height','9');p.setAttribute('patternTransform','rotate(45)');
+      const rect=createSvg('rect');rect.setAttribute('x','0');rect.setAttribute('y','0');rect.setAttribute('width','9');rect.setAttribute('height','9');p.appendChild(rect);
+      const line=createSvg('line');line.setAttribute('x1','0');line.setAttribute('y1','0');line.setAttribute('x2','0');line.setAttribute('y2','9');line.setAttribute('stroke-width','2');p.appendChild(line);
+      defs.appendChild(p);
+    }
+    p.children[0].setAttribute('fill',z.color);
+    p.children[0].setAttribute('fill-opacity',String(z.opacity));
+    p.children[1].setAttribute('stroke',z.color);
+    p.children[1].setAttribute('stroke-opacity','0.8');
+    return id;
+  }
+  function normalizeSettings(s={}) {
+    const step=valid(f64(s.step),1,100000,100);
+    return {
+      step,maxDistance:valid(f64(s.maxDistance??(s.count===undefined?500:step*s.count)),1,1000000,500),
+      color:/^#[0-9a-f]{6}$/i.test(s.color)?s.color:'#3268ce',
+      width:valid(f64(s.width),1,8,2),size:valid(f64(s.size),9,30,14),
+      labelColor:/^#[0-9a-f]{6}$/i.test(s.labelColor)?s.labelColor:'#193d77',
+      bearing:valid(f64(s.bearing),0,360,0),
+      paddingX:valid(f64(s.paddingX),0,50,5),paddingY:valid(f64(s.paddingY),0,50,2)
+    };
+  }
+  function normalizeSector(s={}) {
+    const outer=valid(f64(s.outer),1,1000000,500);
+    return {inner:valid(f64(s.inner),0,outer-1,0),outer,
+      color:/^#[0-9a-f]{6}$/i.test(s.color)?s.color:'#b94a56',opacity:valid(f64(s.opacity),0,1,.2)};
+  }
+  function normalizeLandmark(s={}) {
+    return {nameSize:valid(f64(s.nameSize),9,30,12),distanceSize:valid(f64(s.distanceSize),9,30,11),
+      angleSize:valid(f64(s.angleSize),9,30,11),paddingX:valid(f64(s.paddingX),0,50,8),
+      paddingY:valid(f64(s.paddingY),0,50,5),backgroundOpacity:valid(f64(s.backgroundOpacity),0,1,.95),
+      angle:valid(f64(s.angle),0,360,90)};
+  }
+  let globalSettings={rings:normalizeSettings(),sectors:normalizeSector(),landmarks:normalizeLandmark()};
+  const ringSettings=point=>normalizeSettings({...globalSettings.rings,...point.settings});
+  const sectorSettings=(point,zone)=>normalizeSector({...globalSettings.sectors,...point.zoneSettings,...zone?.settings});
+  const landmarkSettings=(point,landmark)=>normalizeLandmark({...globalSettings.landmarks,...point.landmarkSettings,...landmark?.settings});
+  function ringRadii(settings) {
+    const count=Math.ceil(settings.maxDistance/settings.step);
+    // shortcut: at most 1000 rings per point; use a level-of-detail renderer for larger sets.
+    if(count>1000)throw Error('Завелика кількість кіл. Збільште крок (максимум 1000 кіл).');
+    return Array.from({length:count},(_,i)=>Math.min((i+1)*settings.step,settings.maxDistance));
+  }
+  const pointName=point=>point.name.trim()||'Точка '+(points.indexOf(point)+1);
+  const pointCard=point=>$('point-'+point.id);
+  function bindFieldIds(element,prefix) {
+    element.querySelectorAll('[id]').forEach(input=>{
+      const oldId=input.id;input.id=prefix+'-'+oldId;
+      element.querySelectorAll(`label[for="${oldId}"]`).forEach(label=>label.htmlFor=input.id);
+    });
+  }
+  function appendZoneEditor(point,z) {
+    const item=$('zoneTemplate').content.firstElementChild.cloneNode(true);
+    item.dataset.zoneId=z.id;bindFieldIds(item,'zone-'+z.id);
+    item.querySelectorAll('[data-zone-field]').forEach(input=>input.value=z[input.dataset.zoneField]);
+    pointCard(point).querySelector('.zone-list').appendChild(item);
+    updateZoneList(point);
+  }
+  function updateZoneList(point) {
+    const card=pointCard(point);
+    card.querySelector('.no-zones').hidden=point.zones.length>0;
+  }
+  function appendPointEditor(point) {
+    const card=$('pointTemplate').content.firstElementChild.cloneNode(true);
+    card.id='point-'+point.id;card.dataset.pointId=point.id;
+    bindFieldIds(card,'point-'+point.id);
+    card.querySelector('[data-field="name"]').value=point.name;
+    card.querySelector('.point-name-text').textContent=pointName(point);
+    card.querySelector('[data-field="lat"]').value=point.lat.toFixed(6);
+    card.querySelector('[data-field="lng"]').value=point.lng.toFixed(6);
+    card.querySelectorAll('[data-setting]').forEach(input=>input.value=ringSettings(point)[input.dataset.setting]);
+    card.querySelector('.coordinate-text').textContent=`${point.lat.toFixed(6)}, ${point.lng.toFixed(6)}`;
+    const body=card.querySelector('.point-body');body.id='point-body-'+point.id;
+    card.querySelector('.point-toggle').setAttribute('aria-controls',body.id);
+    $('pointList').appendChild(card);
+    setPointExpanded(point,!point.collapsed);
+    setPointVisible(point,point.visible);
+    point.zones.forEach(z=>appendZoneEditor(point,z));
+    point.landmarks.forEach(landmark=>appendLandmarkEditor(point,landmark));
+    updateZoneList(point);
+    $('emptyPoints').hidden=true;$('pointCount').textContent=points.length;
+    updateVisibilityButton();
+  }
+  const landmarkName=landmark=>landmark.name.trim()||'Орієнтир';
+  function landmarkReadout(point,landmark) {
+    return `${Math.round(azimuth(point,landmark))%360}°`;
+  }
+  function appendLandmarkEditor(point,landmark) {
+    const item=$('landmarkTemplate').content.firstElementChild.cloneNode(true);
+    item.dataset.landmarkId=landmark.id;bindFieldIds(item,'landmark-'+landmark.id);
+    item.querySelector('.landmark-name').textContent=landmarkName(landmark);
+    pointCard(point).querySelector('.landmark-list').appendChild(item);
+  }
+  function setPointExpanded(point,expanded) {
+    if(expanded)points.forEach(other=>{if(other!==point&&pointCard(other))setPointExpanded(other,false);});
+    point.collapsed=!expanded;
+    const card=pointCard(point),toggle=card.querySelector('.point-toggle');
+    card.querySelector('.point-body').hidden=!expanded;
+    card.classList.toggle('collapsed',!expanded);
+    toggle.setAttribute('aria-expanded',String(expanded));
+    const label=(expanded?'Згорнути':'Розгорнути')+' налаштування точки';
+    toggle.setAttribute('aria-label',label);toggle.title=label;
+  }
+  function setPointVisible(point,visible) {
+    point.visible=visible;
+    const card=pointCard(point),button=card.querySelector('[data-action="toggle-visibility"]');
+    card.classList.toggle('map-hidden',!visible);
+    button.setAttribute('aria-pressed',String(visible));
+    const label=visible?'Приховати точку на карті':'Показати точку на карті';
+    button.setAttribute('aria-label',label);button.title=label;
+    button.querySelector('[data-eye-slash]').classList.toggle('hidden',visible);
+    updateVisibilityButton();
+  }
+  function updateVisibilityButton() {
+    const anyVisible=points.some(p=>p.visible),button=$('toggleAllVisibility');
+    button.disabled=points.length===0;
+    button.setAttribute('aria-pressed',String(anyVisible));
+    button.setAttribute('aria-label',anyVisible?'Приховати всі точки':'Показати всі точки');
+    button.title=button.getAttribute('aria-label');
+    button.querySelector('[data-eye-slash]')?.classList.toggle('hidden',anyVisible);
+  }
+  function styleLabel(label,settings) {
+    return `<div class="distance-label" style="font-size:${settings.size}px;color:${settings.labelColor};padding:${settings.paddingY}px ${settings.paddingX}px;">${fmt(label)}</div>`;
+  }
+  function updateCoordinates(point) {
+    const card=pointCard(point);
+    card.querySelector('[data-field="lat"]').value=point.lat.toFixed(6);
+    card.querySelector('[data-field="lng"]').value=point.lng.toFixed(6);
+    card.querySelector('.coordinate-text').textContent=`${point.lat.toFixed(6)}, ${point.lng.toFixed(6)}`;
+  }
+  function draw(keepCenters=false) {
+    ringsLayer.clearLayers();labelsLayer.clearLayers();zonesLayer.clearLayers();landmarksLayer.clearLayers();
+    if(!keepCenters)centerLayer.clearLayers();
+    ringBounds=null;defs.replaceChildren();
+    if(!center)return;
+    const bounds=L.latLngBounds([]);
+    for(const point of points) {
+      if(!point.visible)continue;
+      const s=ringSettings(point),opacity=point===center?1:.75;
+      if(!keepCenters) {
+        const marker=L.marker([point.lat,point.lng],{opacity,interactive:true,keyboard:true,draggable:point===center,bubblingMouseEvents:false,title:pointName(point),icon:L.divIcon({className:'',html:`<div class="center-dot${point===center?' selected':''}"></div>`,iconSize:[16,16],iconAnchor:[8,8]})}).addTo(centerLayer);
+        marker.on('click',()=>selectPoint(point));
+        marker.on('dragstart',()=>setMode('center'));
+        marker.on('drag',()=>{
+          const position=marker.getLatLng().wrap();
+          point.lat=clamp(position.lat,-85,85);point.lng=position.lng;
+          marker.setLatLng([point.lat,point.lng]);
+          updateCoordinates(point);
+          draw(true);
+        });
+        marker.on('dragend',()=>draw());
+      }
+      for(const distance of ringRadii(s)) {
+        const ring=ringPoints(point,distance);
+        L.polyline(ring,{color:s.color,weight:s.width,opacity:.95*opacity,renderer,interactive:false,lineJoin:'round'}).addTo(ringsLayer);
+        if(distance===s.maxDistance)ring.forEach(p=>bounds.extend(p));
+        const lp=destination(point.lat,point.lng,distance,s.bearing);
+        L.marker(lp,{opacity,interactive:false,icon:L.divIcon({className:'',html:styleLabel(distance,s),iconSize:[0,0],iconAnchor:[0,0]})}).addTo(labelsLayer);
+      }
+      for(const z of point.zones){
+        const resolved={...z,...sectorSettings(point,z)};
+        const polygon=L.polygon(zonePolygon(point,resolved),{color:resolved.color,weight:1.5,opacity:.9*opacity,fillOpacity:opacity,renderer,interactive:false}).addTo(zonesLayer);
+        const patternId=getPattern(resolved);
+        if(polygon._path)polygon._path.style.fill=`url(#${patternId})`;
+      }
+      for(const landmark of point.landmarks) {
+        const settings=landmarkSettings(point,landmark);
+        const html=document.createElement('div'),dot=document.createElement('span'),caption=document.createElement('div');
+        dot.className='landmark-dot';caption.className='landmark-caption';
+        const name=document.createElement('strong'),distance=document.createElement('small'),angle=document.createElement('small');
+        name.textContent=landmarkName(landmark);distance.textContent=fmt(map.distance(point,landmark));angle.textContent=landmarkReadout(point,landmark);
+        name.style.fontSize=settings.nameSize+'px';distance.style.fontSize=settings.distanceSize+'px';angle.style.fontSize=settings.angleSize+'px';
+        caption.style.padding=`${settings.paddingY}px ${settings.paddingX}px`;
+        caption.style.backgroundColor=`rgba(255,255,255,${settings.backgroundOpacity})`;
+        const radians=settings.angle*Math.PI/180;
+        caption.style.left=Math.sin(radians)*20+'px';caption.style.top=-Math.cos(radians)*20+'px';
+        caption.style.transform=`translate(${Math.abs(Math.sin(radians))<.01?-50:Math.sin(radians)>0?0:-100}%,${Math.abs(Math.cos(radians))<.01?-50:Math.cos(radians)>0?-100:0}%)`;
+        caption.append(name,distance,angle);html.append(dot,caption);
+        const marker=L.marker([landmark.lat,landmark.lng],{opacity,interactive:true,draggable:point===center,bubblingMouseEvents:false,title:landmarkName(landmark),icon:L.divIcon({className:'',html,iconSize:[12,12],iconAnchor:[0,0]})}).addTo(landmarksLayer);
+        marker.on('click',()=>selectPoint(point));
+        marker.on('dragstart',()=>setMode('center'));
+        marker.on('drag',()=>{
+          let position=marker.getLatLng().wrap();
+          position.lat=clamp(position.lat,-85,85);
+          if(map.distance(point,position)>s.maxDistance)position=L.latLng(destination(point.lat,point.lng,s.maxDistance,azimuth(point,position)));
+          marker.setLatLng(position);landmark.lat=position.lat;landmark.lng=position.lng;
+          distance.textContent=fmt(map.distance(point,landmark));angle.textContent=landmarkReadout(point,landmark);
+        });
+        marker.on('dragend',()=>draw());
+      }
+    }
+    ringBounds=bounds;
+  }
+  function fitMap() {
+    if(center && ringBounds?.isValid())map.fitBounds(ringBounds,{padding:[42,42],maxZoom:18,animate:false});
+  }
+  function focusPoint(point) {
+    if(matchMedia('(max-width:760px)').matches)setSidebarOpen(false);
+    map.invalidateSize({animate:false});
+    const bounds=L.latLngBounds(ringPoints(point,ringSettings(point).maxDistance));
+    point.zones.forEach(z=>zonePolygon(point,{...z,...sectorSettings(point,z)}).forEach(p=>bounds.extend(p)));
+    point.landmarks.forEach(landmark=>bounds.extend([landmark.lat,landmark.lng]));
+    map.fitBounds(bounds,{padding:[50,50],maxZoom:19,animate:false});
+  }
+  function validCoords(lat,lng) {
+    return Number.isFinite(lat)&&Number.isFinite(lng)&&lat>=-85&&lat<=85&&lng>=-180&&lng<=180;
+  }
+  function selectPoint(point,reveal=true) {
+    setMode('center');
+    center=point;
+    points.forEach(p=>{
+      const card=pointCard(p);card.classList.toggle('selected',p===point);
+      if(p===point)card.setAttribute('aria-current','true');else card.removeAttribute('aria-current');
+    });
+    if(point&&reveal) {
+      setPointExpanded(point,true);
+      pointCard(point).querySelector('.point-head').scrollIntoView({block:'nearest'});
+      const overlay=matchMedia('(max-width:760px)').matches&&!$('settingsPanel').inert;
+      const coveredWidth=overlay?$('settingsPanel').getBoundingClientRect().width:0;
+      const pixel=map.latLngToContainerPoint([point.lat,point.lng]);
+      if(!map.getBounds().contains([point.lat,point.lng])||(overlay&&pixel.x<coveredWidth+8)){
+        map.panTo([point.lat,point.lng],{animate:false});
+        if(overlay)map.panBy([-coveredWidth/2,0],{animate:false});
+      }
+    }
+    draw();
+  }
+  function addPoint(lat,lng) {
+    if(!validCoords(lat,lng)) {alert('Введіть коректні координати (широта −85…85, довгота −180…180).');return;}
+    const id=pointId++;
+    const point={id,name:'Точка '+id,lat,lng,settings:{step:100,maxDistance:500},zoneSettings:{},landmarkSettings:{},zones:[],landmarks:[],collapsed:false,visible:true};
+    points.push(point);appendPointEditor(point);selectPoint(point);
+  }
+  function addZone(point,start=30,end=90){
+    const z={id:zoneId++,start,end,settings:{}};
+    point.zones.push(z);appendZoneEditor(point,z);draw();return z;
+  }
+  function setMode(next){
+    mode=next;
+    points.forEach(point=>{
+      pointCard(point)?.querySelector('[data-action="draw-zone"]').classList.toggle('active',point===center&&(next==='start'||next==='end'));
+      pointCard(point)?.querySelector('[data-action="add-landmark"]').classList.toggle('active',point===center&&next==='landmark');
+    });
+    $('modeBadge').classList.toggle('hidden',next==='center');
+    $('modeBadge').textContent=next==='center'?'':`${pointName(center)}: ${next==='landmark'?'позначте орієнтир у межах кіл':next==='start'?'позначте початковий напрямок':'позначте кінцевий напрямок'} (Esc — скасувати)`;
+    map.getContainer().style.cursor=next==='center'||next==='landmark'?'crosshair':'cell';
+    if(preview){map.removeLayer(preview);preview=null;}
+  }
+  map.on('click',ev=>{
+    if(mode==='center') {
+      let nearest=null,nearestDistance=Infinity;
+      for(const point of points) {
+        if(!point.visible)continue;
+        const distance=map.distance(ev.latlng,point);
+        if(distance<=ringSettings(point).maxDistance && distance<nearestDistance){nearest=point;nearestDistance=distance;}
+      }
+      if(nearest)selectPoint(nearest);
+      else addPoint(ev.latlng.lat,ev.latlng.lng);
+    }
+    else if(mode==='landmark') {
+      const s=ringSettings(center);
+      if(!validCoords(ev.latlng.lat,ev.latlng.lng))return;
+      if(map.distance(center,ev.latlng)>s.maxDistance){alert('Оберіть місце орієнтира в межах зовнішнього кола точки.');return;}
+      const landmark={id:landmarkId++,name:'Орієнтир '+(center.landmarks.length+1),lat:ev.latlng.lat,lng:ev.latlng.lng,settings:{}};
+      center.landmarks.push(landmark);appendLandmarkEditor(center,landmark);setMode('center');draw();
+    }
+    else if(mode==='start'){draftStart=azimuth(center,ev.latlng);setMode('end');}
+    else if(mode==='end'){
+      const start=(Math.round(draftStart*10)/10)%360;
+      let end=Math.round(azimuth(center,ev.latlng)*10)/10;
+      if(Math.abs(end-start)<0.05)end=(start+30)%360;
+      addZone(center,start,end);setMode('center');
+    }
+  });
+  map.on('mousemove',ev=>{
+    if(mode!=='end'||!center)return;
+    if(preview){map.removeLayer(preview);preview=null;}
+    const end=azimuth(center,ev.latlng),s=sectorSettings(center);
+    preview=L.polygon(zonePolygon(center,{start:draftStart,end,...s}),{color:s.color,weight:2,opacity:.7,fillColor:s.color,fillOpacity:s.opacity,dashArray:'5 4',renderer,interactive:false}).addTo(map);
+  });
+  $('pointList').addEventListener('submit',ev=>{
+    ev.preventDefault();
+    const form=ev.target;if(!form.reportValidity())return;
+    const point=points.find(p=>p.id===Number(form.closest('.point-card').dataset.pointId));
+    const lat=Number(form.querySelector('[data-field="lat"]').value),lng=Number(form.querySelector('[data-field="lng"]').value);
+    if(!validCoords(lat,lng))return;
+    point.lat=lat;point.lng=lng;updateCoordinates(point);
+    form.hidden=true;pointCard(point).querySelector('.coordinate-text').hidden=false;selectPoint(point,false);
+  });
+  function updateField(ev) {
+    const input=ev.target,card=input.closest('.point-card');if(!card)return;
+    input.setCustomValidity?.('');
+    const point=points.find(p=>p.id===Number(card.dataset.pointId));
+    if(input.dataset.field==='name') {
+      point.name=input.value;card.querySelector('.point-name-text').textContent=pointName(point);return;
+    }
+    if((input.dataset.setting||input.dataset.zoneField)&&(input.value===''||!input.checkValidity()))return;
+    if(input.dataset.setting) {
+      const key=input.dataset.setting;
+      const settings=ringSettings({...point,settings:{...point.settings,[key]:Number(input.value)}});
+      try{ringRadii(settings);}catch(err){input.setCustomValidity(err.message);input.reportValidity();return;}
+      point.settings[key]=settings[key];
+      draw();
+    } else if(input.dataset.zoneField) {
+      const item=input.closest('.zone-card'),z=point.zones.find(z=>z.id===Number(item.dataset.zoneId));
+      const key=input.dataset.zoneField;z[key]=Number(input.value);
+      draw();
+    }
+  }
+  $('pointList').addEventListener('input',updateField);
+  $('pointList').addEventListener('change',updateField);
+  $('pointList').addEventListener('focusout',ev=>{
+    const input=ev.target;
+    if(input.dataset.field==='name') {
+      input.hidden=true;input.closest('.point-head').querySelector('.point-name-text').hidden=false;draw();
+    }
+    const form=input.closest('form[data-action="coordinates"]');
+    if(form&&!form.hidden&&!form.contains(ev.relatedTarget))form.requestSubmit();
+  });
+  $('pointList').addEventListener('keydown',ev=>{
+    if(ev.target.dataset.field==='name'&&ev.key==='Enter'){ev.preventDefault();ev.target.blur();}
+    if(ev.target.dataset.field==='name'&&ev.key==='Escape'){ev.preventDefault();ev.target.blur();}
+  });
+  $('pointList').addEventListener('click',ev=>{
+    const button=ev.target.closest('button[data-action]');if(!button)return;
+    const point=points.find(p=>p.id===Number(button.closest('.point-card').dataset.pointId));
+    switch(button.dataset.action) {
+      case 'toggle-point':
+        if(center===point)setMode('center');
+        if(point.collapsed)selectPoint(point);else setPointExpanded(point,false);
+        break;
+      case 'edit-name': {
+        const card=pointCard(point),input=card.querySelector('[data-field="name"]');
+        card.querySelector('.point-name-text').hidden=true;input.hidden=false;input.focus();input.select();break;
+      }
+      case 'edit-coordinates': {
+        const card=pointCard(point);
+        button.hidden=true;card.querySelector('form[data-action="coordinates"]').hidden=false;
+        card.querySelector('[data-field="lat"]').focus();break;
+      }
+      case 'ring-settings':openSettings('rings',point);break;
+      case 'sector-settings':openSettings('sectors',point);break;
+      case 'landmark-settings':openSettings('landmarks',point);break;
+      case 'zone-settings':
+        openSettings('sectors',point,point.zones.find(z=>z.id===Number(button.closest('.zone-card').dataset.zoneId)));break;
+      case 'edit-landmark':
+        openSettings('landmarks',point,point.landmarks.find(l=>l.id===Number(button.closest('.landmark-item').dataset.landmarkId)));break;
+      case 'center-point':
+        setPointVisible(point,true);selectPoint(point,false);focusPoint(point);break;
+      case 'toggle-visibility':
+        if(center===point)setMode('center');
+        setPointVisible(point,!point.visible);draw();break;
+      case 'delete-point': {
+        setMode('center');
+        const index=points.indexOf(point);points.splice(index,1);pointCard(point).remove();
+        $('pointCount').textContent=points.length;$('emptyPoints').hidden=points.length>0;
+        updateVisibilityButton();
+        selectPoint(center===point?(points[index]||points[index-1]||null):center,false);break;
+      }
+      case 'add-zone':
+        selectPoint(point,false);addZone(point);break;
+      case 'draw-zone':
+        if(center===point&&mode!=='center')setMode('center');
+        else {setPointVisible(point,true);selectPoint(point);if(matchMedia('(max-width:760px)').matches)focusPoint(point);setMode('start');}
+        break;
+      case 'add-landmark':
+        if(center===point&&mode==='landmark')setMode('center');
+        else {setPointVisible(point,true);selectPoint(point);if(matchMedia('(max-width:760px)').matches)focusPoint(point);setMode('landmark');}
+        break;
+      case 'delete-landmark': {
+        const item=button.closest('.landmark-item');
+        point.landmarks.splice(point.landmarks.findIndex(l=>l.id===Number(item.dataset.landmarkId)),1);
+        item.remove();draw();break;
+      }
+      case 'delete-zone': {
+        const item=button.closest('.zone-card');
+        point.zones.splice(point.zones.findIndex(z=>z.id===Number(item.dataset.zoneId)),1);
+        item.remove();updateZoneList(point);draw();break;
+      }
+    }
+  });
+  let reorder=null,reorderFrameId=null;
+  function movePointTo(point,index) {
+    index=clamp(index,0,points.length-1);
+    const current=points.indexOf(point);if(current===index)return;
+    points.splice(current,1);points.splice(index,0,point);
+    $('pointList').insertBefore(pointCard(point),points[index+1]?pointCard(points[index+1]):null);
+  }
+  function reorderFrame() {
+    if(!reorder?.started)return;
+    const scroll=document.querySelector('.scroll'),bounds=scroll.getBoundingClientRect(),y=reorder.y;
+    if(y<bounds.top+32)scroll.scrollTop-=12;else if(y>bounds.bottom-32)scroll.scrollTop+=12;
+    const others=points.filter(point=>point!==reorder.point);
+    const index=others.findIndex(point=>{
+      const r=pointCard(point).querySelector('.point-head').getBoundingClientRect();
+      return y<r.top+r.height/2;
+    });
+    movePointTo(reorder.point,index<0?others.length:index);
+    reorderFrameId=requestAnimationFrame(reorderFrame);
+  }
+  function finishReorder(cancelled=false) {
+    if(!reorder)return;
+    const state=reorder;reorder=null;cancelAnimationFrame(reorderFrameId);
+    if($('pointList').hasPointerCapture(state.pointerId))$('pointList').releasePointerCapture(state.pointerId);
+    if(!state.started)return;
+    if(cancelled)movePointTo(state.point,state.index);
+    pointCard(state.point).classList.remove('reordering');
+    setPointExpanded(state.point,!state.collapsed);
+    pointCard(state.point).querySelector('.point-head').scrollIntoView({block:'nearest'});
+    draw();
+  }
+  $('pointList').addEventListener('pointerdown',ev=>{
+    const card=ev.target.closest('.point-card');
+    if(!card||ev.target.closest('button,input,select,a,form')||ev.button!==0)return;
+    const point=points.find(p=>p.id===Number(card.dataset.pointId));
+    if(!point.collapsed)return;
+    ev.preventDefault();card.focus({preventScroll:true});
+    reorder={point,pointerId:ev.pointerId,y:ev.clientY,startY:ev.clientY,index:points.indexOf(point),collapsed:point.collapsed,started:false};
+    $('pointList').setPointerCapture(ev.pointerId);
+  });
+  document.addEventListener('pointermove',ev=>{
+    if(!reorder||ev.pointerId!==reorder.pointerId)return;
+    ev.preventDefault();reorder.y=ev.clientY;
+    if(!reorder.started&&Math.abs(ev.clientY-reorder.startY)>4) {
+      reorder.started=true;setPointExpanded(reorder.point,false);
+      pointCard(reorder.point).classList.add('reordering');reorderFrame();
+    }
+  });
+  document.addEventListener('pointerup',ev=>{if(reorder?.pointerId===ev.pointerId)finishReorder();});
+  document.addEventListener('pointercancel',ev=>{if(reorder?.pointerId===ev.pointerId)finishReorder(true);});
+  $('pointList').addEventListener('keydown',ev=>{
+    const card=ev.target.closest('.point-card');
+    if(!card||ev.target!==card||!['ArrowUp','ArrowDown'].includes(ev.key))return;
+    const point=points.find(p=>p.id===Number(card.dataset.pointId));
+    if(!point.collapsed)return;
+    ev.preventDefault();
+    movePointTo(point,points.indexOf(point)+(ev.key==='ArrowUp'?-1:1));
+    card.focus({preventScroll:true});card.scrollIntoView({block:'nearest'});draw();
+  });
+  function setSidebarOpen(open) {
+    document.querySelector('.app').classList.toggle('settings-closed',!open);
+    $('settingsPanel').inert=!open;
+    setSaveMenu(false);
+    $('toggleSettings').setAttribute('aria-expanded',String(open));
+    const label=open?'Приховати меню':'Відкрити меню';
+    $('toggleSettings').setAttribute('aria-label',label);$('toggleSettings').title=label;
+  }
+  $('toggleSettings').onclick=()=>setSidebarOpen($('toggleSettings').getAttribute('aria-expanded')!=='true');
+  function setSaveMenu(open) {
+    $('saveMenu').hidden=!open;
+    $('saveToggle').setAttribute('aria-expanded',String(open));
+  }
+  $('saveToggle').onclick=()=>{
+    const open=$('saveMenu').hidden;setSaveMenu(open);
+    if(open)$('saveMenu').querySelector('button').focus();
+  };
+  $('saveMenu').addEventListener('click',ev=>{if(ev.target.closest('button'))setSaveMenu(false);});
+  document.addEventListener('click',ev=>{
+    if(!ev.target.closest('#saveMenu,#saveToggle'))setSaveMenu(false);
+  });
+  $('saveMenu').addEventListener('keydown',ev=>{
+    const buttons=[...$('saveMenu').querySelectorAll('button')];
+    if(ev.key==='Escape'){setSaveMenu(false);$('saveToggle').focus();}
+    if(ev.key==='ArrowDown'||ev.key==='ArrowUp'){
+      ev.preventDefault();
+      buttons[(buttons.indexOf(document.activeElement)+(ev.key==='ArrowDown'?1:buttons.length-1))%buttons.length].focus();
+    }
+  });
+  $('editTitle').onclick=()=>{
+    $('cardTitleText').hidden=true;$('cardTitle').hidden=false;$('cardTitle').focus();$('cardTitle').select();
+  };
+  function finishTitle() {
+    $('cardTitle').value=$('cardTitle').value.trim()||'Картка відстаней та обмежених зон';
+    $('cardTitleText').textContent=$('cardTitle').value;
+    $('cardTitle').hidden=true;$('cardTitleText').hidden=false;
+  }
+  $('cardTitle').addEventListener('blur',finishTitle);
+  $('cardTitle').addEventListener('keydown',ev=>{if(ev.key==='Enter'||ev.key==='Escape'){ev.preventDefault();ev.target.blur();}});
+  $('toggleAllVisibility').onclick=()=>{
+    const visible=!points.some(p=>p.visible);
+    setMode('center');points.forEach(p=>setPointVisible(p,visible));draw();
+  };
+  const settingsFields={
+    rings:[
+      ['color','Колір кіл','color'],['width','Товщина лінії, px','number',1,8,.5],
+      ['size','Розмір підписів, px','number',9,30,1],['labelColor','Колір тексту','color'],
+      ['bearing','Кут підписів, °','number',0,360,'any'],
+      ['paddingX','Відступ по горизонталі, px','number',0,50,1],['paddingY','Відступ по вертикалі, px','number',0,50,1]
+    ],
+    sectors:[
+      ['inner','Внутрішній радіус, м','number',0,1000000,'any'],['outer','Зовнішній радіус, м','number',1,1000000,'any'],
+      ['color','Колір штрихування','color'],['opacity','Насиченість','number',0,1,.05]
+    ],
+    landmarks:[
+      ['nameSize','Шрифт назви, px','number',9,30,1],['distanceSize','Шрифт відстані, px','number',9,30,1],
+      ['angleSize','Шрифт кута, px','number',9,30,1],['paddingX','Відступ по горизонталі, px','number',0,50,1],
+      ['paddingY','Відступ по вертикалі, px','number',0,50,1],['backgroundOpacity','Прозорість фону','number',0,1,.05],
+      ['angle','Кут розташування підказки, °','number',0,360,'any']
+    ]
+  };
+  const settingsNames={rings:'Кола відстаней',sectors:'Заштриховані сектори',landmarks:'Орієнтири'};
+  const normalizers={rings:normalizeSettings,sectors:normalizeSector,landmarks:normalizeLandmark};
+  let settingsEditor=null;
+  function openSettings(group,point=null,item=null) {
+    const groups=group?[group]:['rings','sectors','landmarks'];
+    settingsEditor={groups,point,item,initial:{}};
+    $('settingsTitle').textContent=point?(item&&group==='landmarks'?'Редагувати орієнтир':settingsNames[group]):'Глобальні налаштування';
+    $('settingsScope').textContent=point
+      ?`${pointName(point)} · ${item?'Окремі налаштування':'Налаштування точки'}. Незмінені поля успадковуються.`
+      :'Спільні параметри для всіх точок без персональних змін.';
+    $('resetSettings').hidden=!point;
+    $('resetSettings').textContent=item?'Використовувати налаштування точки':'Використовувати глобальні';
+    $('settingsFields').replaceChildren();
+    function addField(name,label,type,value,min,max,step) {
+      const wrapper=document.createElement('div'),caption=document.createElement('label'),input=document.createElement('input');
+      wrapper.className='field';input.id='settings-'+name.replaceAll('.','-');input.name=name;
+      caption.htmlFor=input.id;caption.textContent=label;input.type=type;input.value=value;input.required=true;
+      if(type==='number'){input.min=min;input.max=max;input.step=step;}
+      if(type==='text')input.maxLength=80;
+      wrapper.append(caption,input);$('settingsFields').append(wrapper);
+      settingsEditor.initial[name]=String(value);
+    }
+    if(item&&group==='landmarks'){
+      addField('name','Назва орієнтира','text',item.name);
+      addField('lat','Широта','number',item.lat,-85,85,'any');
+      addField('lng','Довгота','number',item.lng,-180,180,'any');
+    }
+    for(const key of groups){
+      const heading=document.createElement('h3');heading.textContent=settingsNames[key];heading.className='settings-group-title';
+      $('settingsFields').append(heading);
+      const value=!point?globalSettings[key]:key==='rings'?ringSettings(point):key==='sectors'?sectorSettings(point,item):landmarkSettings(point,item);
+      for(const [field,label,type,min,max,step] of settingsFields[key])addField(key+'.'+field,label,type,value[field],min,max,step);
+    }
+    $('settingsDialog').showModal();
+  }
+  function overrideTarget(group,point,item) {
+    if(item)return item.settings;
+    return group==='rings'?point.settings:group==='sectors'?point.zoneSettings:point.landmarkSettings;
+  }
+  $('globalSettings').onclick=()=>openSettings(null);
+  $('closeSettings').onclick=()=>$('settingsDialog').close();
+  $('settingsForm').addEventListener('input',ev=>ev.target.setCustomValidity?.(''));
+  $('settingsForm').onsubmit=ev=>{
+    ev.preventDefault();
+    const {groups,point,item,initial}=settingsEditor,form=$('settingsForm');
+    if(!form.reportValidity())return;
+    if(groups.includes('sectors')){
+      const inner=form.elements.namedItem('sectors.inner'),outer=form.elements.namedItem('sectors.outer');
+      if(Number(inner.value)>=Number(outer.value)){inner.setCustomValidity('Внутрішній радіус має бути меншим за зовнішній.');inner.reportValidity();return;}
+    }
+    for(const group of groups){
+      const target=point?overrideTarget(group,point,item):globalSettings[group];
+      for(const [key,,type] of settingsFields[group]){
+        const name=group+'.'+key,input=form.elements.namedItem(name);
+        if(input.value!==initial[name])target[key]=type==='color'?input.value:Number(input.value);
+      }
+    }
+    if(item&&groups[0]==='landmarks'){
+      item.name=form.elements.namedItem('name').value;
+      item.lat=Number(form.elements.namedItem('lat').value);item.lng=Number(form.elements.namedItem('lng').value);
+      pointCard(point).querySelector(`[data-landmark-id="${item.id}"] .landmark-name`).textContent=landmarkName(item);
+    }
+    $('settingsDialog').close();draw();
+  };
+  $('resetSettings').onclick=()=>{
+    const {groups,point,item}=settingsEditor;
+    for(const group of groups){
+      const target=overrideTarget(group,point,item);
+      for(const [key] of settingsFields[group])delete target[key];
+    }
+    $('settingsDialog').close();draw();
+  };
+  document.addEventListener('keydown',ev=>{if(ev.key==='Escape'){finishReorder(true);setMode('center');setSaveMenu(false);}});
+  window.addEventListener('blur',()=>finishReorder(true));
+  $('print').onclick=()=>{map.invalidateSize();setTimeout(()=>window.print(),80);};
+  window.addEventListener('afterprint',()=>map.invalidateSize());
+  function collectProject(){
+    return {format:'cartographic-zones-v4',title:$('cardTitle').value,globalSettings,
+      points:points.map(({id,...point})=>({...point,zones:point.zones.map(({id,...z})=>z),landmarks:point.landmarks.map(({id,...landmark})=>landmark)})),
+      selectedPoint:points.indexOf(center),view:{lat:map.getCenter().lat,lng:map.getCenter().lng,zoom:map.getZoom()}};
+  }
+  function download(name,content,mime){
+    const blob=new Blob([content],{type:mime}),url=URL.createObjectURL(blob),a=document.createElement('a');
+    a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+  }
+  $('exportJSON').onclick=()=>download('kartohrafichni-zony.json',JSON.stringify(collectProject(),null,2),'application/json;charset=utf-8');
+  $('exportPoints').onclick=()=>{
+    const rows=['number,name,latitude,longitude',...points.map((p,i)=>{
+      // Keep imported names as text when opened in a spreadsheet.
+      const name=pointName(p).replace(/^(\s*[=+@-])/,"'$1").replaceAll('"','""');
+      return `${i+1},"${name}",${p.lat},${p.lng}`;
+    })];
+    download('tochky.csv','\uFEFF'+rows.join('\r\n'),'text/csv;charset=utf-8');
+  };
+  $('exportGeoJSON').onclick=()=>{
+    if(!center){alert('Спочатку виберіть центральну точку.');return;}
+    const features=[];
+    points.forEach((point,index)=>{
+      const s=ringSettings(point);
+      features.push({type:'Feature',properties:{type:'center',point:index+1,name:pointName(point),visible:point.visible,title:$('cardTitle').value},geometry:{type:'Point',coordinates:[point.lng,point.lat]}});
+      for(const radius of ringRadii(s))features.push({type:'Feature',properties:{type:'distance_ring',point:index+1,radius_m:radius,stroke:s.color},geometry:{type:'LineString',coordinates:ringPoints(point,radius).map(p=>[p[1],p[0]])}});
+      for(const zone of point.zones){const z={...zone,...sectorSettings(point,zone)},pts=zonePolygon(point,z).map(p=>[p[1],p[0]]);if(pts.length)pts.push(pts[0]);features.push({type:'Feature',properties:{type:'restricted_zone',point:index+1,start_deg:z.start,end_deg:z.end,inner_radius_m:z.inner,outer_radius_m:z.outer,fill:z.color},geometry:{type:'Polygon',coordinates:[pts]}});}
+      for(const landmark of point.landmarks)features.push({type:'Feature',properties:{type:'landmark',point:index+1,name:landmarkName(landmark),distance_m:map.distance(point,landmark),azimuth_deg:azimuth(point,landmark)},geometry:{type:'Point',coordinates:[landmark.lng,landmark.lat]}});
+    });
+    download('kartohrafichni-zony.geojson',JSON.stringify({type:'FeatureCollection',features},null,2),'application/geo+json;charset=utf-8');
+  };
+  $('importJSON').onclick=()=>$('filePicker').click();
+  $('filePicker').onchange=async e=>{
+    const file=e.target.files?.[0];if(!file)return;
+    try {
+      const data=JSON.parse(await file.text());
+      if(!data||!['cartographic-zones-v1','cartographic-zones-v2','cartographic-zones-v3','cartographic-zones-v4'].includes(data.format))throw Error('Невідомий формат проєкту');
+      const modern=data.format==='cartographic-zones-v4',legacy=['cartographic-zones-v1','cartographic-zones-v2'].includes(data.format);
+      const record=value=>value!==null&&typeof value==='object'&&!Array.isArray(value);
+      if(legacy&&(!data.settings||typeof data.settings!=='object'))throw Error('Некоректні налаштування');
+      if(modern&&(!record(data.globalSettings)||['rings','sectors','landmarks'].some(key=>!record(data.globalSettings[key]))))throw Error('Некоректні глобальні налаштування');
+      const imported=data.format==='cartographic-zones-v1'?(data.center?[{...data.center,zones:data.zones}]:[]):data.points;
+      if(!Array.isArray(imported)||imported.some(p=>!p||!validCoords(p.lat,p.lng)||!Array.isArray(p.zones)||p.zones.some(z=>!record(z)||(modern&&!record(z.settings)))||(!legacy&&!record(p.settings))||
+        (modern&&(!record(p.zoneSettings)||!record(p.landmarkSettings)))||
+        (p.landmarks!==undefined&&(!Array.isArray(p.landmarks)||p.landmarks.some(l=>!l||!validCoords(l.lat,l.lng)||(modern&&!record(l.settings)))))))throw Error('Некоректні точки, сектори або орієнтири');
+      const nextGlobal=modern?{rings:normalizeSettings(data.globalSettings.rings),sectors:normalizeSector(data.globalSettings.sectors),landmarks:normalizeLandmark(data.globalSettings.landmarks)}
+        :{rings:normalizeSettings(),sectors:normalizeSector(),landmarks:normalizeLandmark()};
+      function overrides(group,value,base=nextGlobal[group]) {
+        const normalized=normalizers[group]({...base,...value});
+        return Object.fromEntries(Object.keys(value).filter(key=>Object.hasOwn(normalized,key)).map(key=>[key,normalized[key]]));
+      }
+      let nextZoneId=1,nextLandmarkId=1;
+      const importedPoints=imported.map((p,i)=>{
+        const settings=modern?overrides('rings',p.settings):normalizeSettings(legacy?data.settings:p.settings);
+        const zoneSettings=modern?overrides('sectors',p.zoneSettings):{};
+        ringRadii(normalizeSettings({...nextGlobal.rings,...settings}));
+        return {id:i+1,name:String(p.name||'Точка '+(i+1)).slice(0,80),lat:p.lat,lng:p.lng,settings,
+          zoneSettings,landmarkSettings:modern?overrides('landmarks',p.landmarkSettings):{},
+          collapsed:p.collapsed===true,visible:p.visible!==false,
+          landmarks:(p.landmarks||[]).map((l,index)=>({id:nextLandmarkId++,name:String(l.name||'Орієнтир '+(index+1)).slice(0,80),lat:l.lat,lng:l.lng,settings:modern?overrides('landmarks',l.settings):{}})),
+          zones:p.zones.map(z=>({id:nextZoneId++,start:valid(f64(z.start),0,359.99,30),end:valid(f64(z.end),0,360,90),settings:modern?overrides('sectors',z.settings,{...nextGlobal.sectors,...zoneSettings}):normalizeSector(z)}))};
+      });
+      $('cardTitle').value=String(data.title||'Картка відстаней та обмежених зон').slice(0,90);
+      finishTitle();
+      finishReorder(true);
+      setMode('center');
+      globalSettings=nextGlobal;points=importedPoints;pointId=points.length+1;zoneId=nextZoneId;landmarkId=nextLandmarkId;
+      $('pointList').replaceChildren();points.forEach(appendPointEditor);
+      $('emptyPoints').hidden=points.length>0;$('pointCount').textContent=points.length;
+      updateVisibilityButton();
+      selectPoint((Number.isInteger(data.selectedPoint)?points[data.selectedPoint]:null)||points[0]||null,false);
+      if(data.view && validCoords(data.view.lat,data.view.lng) && Number.isFinite(data.view.zoom))map.setView([data.view.lat,data.view.lng],clamp(data.view.zoom,1,19),{animate:false});else fitMap();
+    } catch(err){ alert('Не вдалося відкрити проєкт: '+err.message); }
+    e.target.value='';
+  };
+  map.getContainer().style.cursor='crosshair';
+  selectPoint(null);
+  updateVisibilityButton();
+  new ResizeObserver(()=>map.invalidateSize({animate:false})).observe($('map'));
+})();
+</script>
 </body>
 </html>
